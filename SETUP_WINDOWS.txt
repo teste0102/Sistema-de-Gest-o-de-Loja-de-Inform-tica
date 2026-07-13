@@ -1,0 +1,281 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                                                                          ║
+║         🚀 SISTEMA DE GESTÃO DE LOJA DE INFORMÁTICA                    ║
+║              GUIA DE INSTALAÇÃO PARA WINDOWS                            ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+⏱️  TEMPO TOTAL: 10-15 MINUTOS
+
+═══════════════════════════════════════════════════════════════════════════
+
+📋 PASSO 1: PREPARAR SEU COMPUTADOR
+═══════════════════════════════════════════════════════════════════════════
+
+Você precisa ter instalado (se não tiver, baixe e instale):
+
+1️⃣ PYTHON 3.11+
+   Acesse: https://www.python.org/downloads/
+   Clique em "Downloads" → selecione Python 3.11 ou superior
+   ⚠️  IMPORTANTE: Marque "Add Python to PATH" durante instalação
+   
+   Verificar: Abra PowerShell e digite:
+   python --version
+
+2️⃣ NODE.JS 18+
+   Acesse: https://nodejs.org/
+   Baixe a versão LTS
+   Execute o instalador
+   
+   Verificar: Abra PowerShell e digite:
+   node --version
+   npm --version
+
+3️⃣ GIT
+   Acesse: https://git-scm.com/download/win
+   Instale com as opções padrão
+   
+   Verificar: Abra PowerShell e digite:
+   git --version
+
+4️⃣ DOCKER DESKTOP (Opcional, mas Recomendado)
+   Acesse: https://www.docker.com/products/docker-desktop
+   Instale
+   Inicie o Docker Desktop
+
+═══════════════════════════════════════════════════════════════════════════
+
+📥 PASSO 2: CLONAR O REPOSITÓRIO
+═══════════════════════════════════════════════════════════════════════════
+
+1. Abra PowerShell (pesquise "PowerShell" no Windows)
+
+2. Digite os comandos abaixo (um por um):
+
+   git clone https://github.com/teste0102/Sistema-de-Gest-o-de-Loja-de-Inform-tica.git
+
+   cd Sistema-de-Gest-o-de-Loja-de-Inform-tica
+
+   git checkout claude/loja-informatica-setup-6rgvdu
+
+═══════════════════════════════════════════════════════════════════════════
+
+🔧 PASSO 3: INSTALAÇÃO AUTOMÁTICA
+═══════════════════════════════════════════════════════════════════════════
+
+Você está na pasta "Sistema-de-Gest-o-de-Loja-de-Inform-tica"
+
+🎯 OPÇÃO A: Clique duas vezes no arquivo "install-windows.bat"
+
+OU
+
+🎯 OPÇÃO B: No PowerShell, digite:
+
+   .\install-windows.bat
+
+Aguarde a instalação completar. Você verá mensagens de progresso.
+
+═══════════════════════════════════════════════════════════════════════════
+
+✨ PASSO 4: INICIAR A APLICAÇÃO
+═══════════════════════════════════════════════════════════════════════════
+
+Agora você precisa abrir 3 PowerShells DIFERENTES:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ TERMINAL 1️⃣ - BANCO DE DADOS                                            │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Abra um novo PowerShell e execute:
+
+   docker-compose up -d postgres pgadmin
+
+✓ Verá mensagens de início
+✓ PostgreSQL estará pronto em: localhost:5432
+✓ pgAdmin em: http://localhost:5050
+
+⚠️  Se Docker não estiver instalado, você pode:
+- Instalar Docker Desktop: https://www.docker.com/products/docker-desktop
+- OU usar PostgreSQL local (mais complexo)
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ TERMINAL 2️⃣ - BACKEND (Python/FastAPI)                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Abra um novo PowerShell e execute:
+
+   cd backend
+   venv\Scripts\activate
+   python main.py
+
+✓ Verá a mensagem "Uvicorn running on http://127.0.0.1:8000"
+✓ Backend estará pronto em: http://localhost:8000
+✓ API interativa em: http://localhost:8000/docs
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ TERMINAL 3️⃣ - FRONTEND (React)                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Abra um novo PowerShell e execute:
+
+   cd frontend
+   npm start
+
+✓ O navegador abrirá automaticamente
+✓ Frontend estará em: http://localhost:3000
+
+═══════════════════════════════════════════════════════════════════════════
+
+🌐 PASSO 5: ACESSAR O SISTEMA
+═══════════════════════════════════════════════════════════════════════════
+
+Abra o navegador e acesse:
+
+1. FRONTEND (Dashboard):
+   http://localhost:3000
+   
+   Você verá:
+   - Estatísticas de clientes
+   - Estatísticas de ordens
+   - Estatísticas de financeiro
+
+2. API SWAGGER (Testes):
+   http://localhost:8000/docs
+   
+   Você pode:
+   - Testar todos os endpoints
+   - Ver documentação
+   - Enviar requisições
+
+3. PGADMIN (Banco de Dados):
+   http://localhost:5050
+   
+   Login:
+   Email: admin@loja.com
+   Senha: admin
+
+═══════════════════════════════════════════════════════════════════════════
+
+✅ PASSO 6: TESTE RÁPIDO (Verificar se está funcionando)
+═══════════════════════════════════════════════════════════════════════════
+
+1. Abra um novo PowerShell
+
+2. Copie e cole este comando:
+
+curl -X POST http://localhost:8000/api/clientes/ `
+  -H "Content-Type: application/json" `
+  -d '{
+    "codigo": 1,
+    "nome": "Teste Ltda",
+    "telefone": "11-99999999",
+    "email": "teste@email.com"
+  }'
+
+3. Se retornar os dados do cliente criado, está funcionando! ✅
+
+═══════════════════════════════════════════════════════════════════════════
+
+🐛 PROBLEMAS?
+═══════════════════════════════════════════════════════════════════════════
+
+❌ ERRO: "python: command not found"
+   ✓ Python não está no PATH
+   ✓ Reinstale Python e MARQUE "Add Python to PATH"
+   ✓ Reinicie o PowerShell
+
+❌ ERRO: "node: command not found"
+   ✓ Node.js não está no PATH
+   ✓ Reinstale Node.js
+   ✓ Reinicie o PowerShell
+
+❌ ERRO: "Connection refused: localhost:5432"
+   ✓ Docker não está rodando
+   ✓ Abra Docker Desktop
+   ✓ Execute: docker-compose up postgres
+
+❌ ERRO: "Porta 3000 já em uso"
+   ✓ Outro programa está usando a porta
+   ✓ No Terminal 3, digite: PORT=3001 npm start
+
+❌ ERRO: ".env file not found"
+   ✓ O script deveria ter criado
+   ✓ Copie manualmente: copy backend\.env.example backend\.env
+
+═══════════════════════════════════════════════════════════════════════════
+
+📚 FICHEIROS IMPORTANTES
+═══════════════════════════════════════════════════════════════════════════
+
+INSTALAR.md              ← Guia rápido (este arquivo em detalhes)
+INSTALACAO.md            ← Documentação completa
+VERIFICACAO_FINAL.md     ← Checklist de verificação
+README.md                ← Documentação principal
+COMECO_RAPIDO.md         ← Quick start
+
+═══════════════════════════════════════════════════════════════════════════
+
+🎯 ESTRUTURA DE PASTAS
+═══════════════════════════════════════════════════════════════════════════
+
+Sistema-de-Gest-o-de-Loja-de-Inform-tica/
+│
+├── backend/                    ← Python/FastAPI
+│   ├── venv/                   ← Ambiente virtual (criado)
+│   ├── main.py                 ← App principal
+│   ├── requirements.txt         ← Dependências
+│   └── .env                    ← Configurações (criado)
+│
+├── frontend/                   ← React
+│   ├── node_modules/           ← Pacotes npm (criado)
+│   ├── src/                    ← Código React
+│   ├── package.json            ← Dependências npm
+│   └── .env.local              ← Configurações (criado)
+│
+├── docker-compose.yml          ← PostgreSQL + pgAdmin
+├── install-windows.bat         ← Script de instalação
+├── INSTALAR.md                 ← Este guia
+
+═══════════════════════════════════════════════════════════════════════════
+
+✨ CREDENCIAIS PADRÃO
+═══════════════════════════════════════════════════════════════════════════
+
+Banco de Dados:
+  Host:     localhost
+  Porta:    5432
+  Usuário:  loja
+  Senha:    senha123
+  Banco:    loja_informatica
+
+pgAdmin:
+  Email:    admin@loja.com
+  Senha:    admin
+
+═══════════════════════════════════════════════════════════════════════════
+
+🎉 PRONTO!
+═══════════════════════════════════════════════════════════════════════════
+
+Seu sistema de gestão de loja está rodando!
+
+Próximas ações:
+1. Explore o Dashboard em http://localhost:3000
+2. Teste as APIs em http://localhost:8000/docs
+3. Crie alguns clientes e ordens
+4. Leia INSTALACAO.md para mais recursos
+
+═══════════════════════════════════════════════════════════════════════════
+
+📞 SUPORTE
+═══════════════════════════════════════════════════════════════════════════
+
+Se tiver dúvidas:
+• Veja o arquivo INSTALACAO.md (documentação completa)
+• Veja o arquivo VERIFICACAO_FINAL.md (checklist)
+• GitHub: https://github.com/teste0102/Sistema-de-Gest-o-de-Loja-de-Inform-tica
+
+═══════════════════════════════════════════════════════════════════════════
+
+Bom desenvolvimento! 🚀
+
