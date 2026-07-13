@@ -1,0 +1,55 @@
+.dashboard {
+  padding-bottom: 20px;
+}
+
+.stat-card {
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card.clients {
+  border-left: 4px solid #007bff;
+}
+
+.stat-card.orders {
+  border-left: 4px solid #ffc107;
+}
+
+.stat-card.revenue {
+  border-left: 4px solid #28a745;
+}
+
+.stat-card.balance {
+  border-left: 4px solid #17a2b8;
+}
+
+.stat-card h6 {
+  color: #666;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+
+.stat-card h2 {
+  font-weight: 700;
+  font-size: 32px;
+  margin: 0 0 8px 0;
+}
+
+.stat-card small {
+  color: #999;
+  font-size: 12px;
+}
+
+.stat-card .card-body {
+  padding: 20px;
+}

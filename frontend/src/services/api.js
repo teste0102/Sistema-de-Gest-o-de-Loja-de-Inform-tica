@@ -1,0 +1,157 @@
+import axios from 'axios';
+import { openDB } from 'dexie';
+
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+// Criar banco offline (IndexedDB)
+const db = openDB('LojaDB', 1, {
+  upgrade(db) {
+    // Criar stores para cache
+    if (!db.objectStoreNames.contains('clientes')) {
+      db.createObjectStore('clientes', { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains('ordens')) {
+      db.createObjectStore('ordens', { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains('lancamentos')) {
+      db.createObjectStore('lancamentos', { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains('syncQueue')) {
+      db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
+    }
+  },
+});
+
+class APIClient {
+  constructor() {
+    this.isOnline = navigator.onLine;
+    window.addEventListener('online', () => this.setOnline(true));
+    window.addEventListener('offline', () => this.setOnline(false));
+  }
+
+  setOnline(status) {
+    this.isOnline = status;
+    if (status) {
+      this.syncQueue();
+    }
+  }
+
+  async request(method, endpoint, data = null) {
+    const url = `${API_BASE}${endpoint}`;
+
+    try {
+      // Tentar chamar API
+      let response;
+      const config = {
+        method,
+        url,
+        timeout: 5000,
+      };
+
+      if (data) {
+        config.data = data;
+      }
+
+      response = await axios(config);
+
+      // Sucesso: salvar no cache local
+      if (response.status === 200 || response.status === 201) {
+        this.cacheResponse(endpoint, response.data);
+        return response.data;
+      }
+
+      return response.data;
+    } catch (error) {
+      // Erro: verificar cache ou retornar do IndexedDB
+      console.warn(`API erro (${method} ${endpoint}):`, error.message);
+
+      if (this.isOnline) {
+        throw error;
+      }
+
+      // Offline: retornar do cache
+      return this.getCachedData(endpoint);
+    }
+  }
+
+  async cacheResponse(endpoint, data) {
+    // Determinar tabela baseado no endpoint
+    let storeName = null;
+    if (endpoint.includes('clientes')) storeName = 'clientes';
+    if (endpoint.includes('ordens')) storeName = 'ordens';
+    if (endpoint.includes('financeiro')) storeName = 'lancamentos';
+
+    if (storeName && data.items) {
+      const dbInstance = await db;
+      await dbInstance.clear(storeName);
+      for (const item of data.items) {
+        await dbInstance.add(storeName, item);
+      }
+    }
+  }
+
+  async getCachedData(endpoint) {
+    let storeName = null;
+    if (endpoint.includes('clientes')) storeName = 'clientes';
+    if (endpoint.includes('ordens')) storeName = 'ordens';
+    if (endpoint.includes('financeiro')) storeName = 'lancamentos';
+
+    if (!storeName) return null;
+
+    const dbInstance = await db;
+    const items = await dbInstance.getAll(storeName);
+    return { items, total: items.length };
+  }
+
+  async addToSyncQueue(tabela, operacao, registro_id, dados) {
+    const dbInstance = await db;
+    await dbInstance.add('syncQueue', {
+      tabela,
+      operacao,
+      registro_id,
+      dados,
+      timestamp: new Date(),
+    });
+  }
+
+  async syncQueue() {
+    const dbInstance = await db;
+    const itens = await dbInstance.getAll('syncQueue');
+
+    if (itens.length === 0) return;
+
+    try {
+      const response = await axios.post(`${API_BASE}/api/sync/push`, {
+        itens,
+        timestamp: new Date(),
+      });
+
+      if (response.data.status === 'success') {
+        // Limpar queue
+        await dbInstance.clear('syncQueue');
+        console.log(`✅ ${response.data.sincronizados} registros sincronizados`);
+      }
+    } catch (error) {
+      console.error('Erro ao sincronizar:', error);
+    }
+  }
+
+  // Métodos CRUD padrão
+  async get(endpoint) {
+    return this.request('GET', endpoint);
+  }
+
+  async post(endpoint, data) {
+    return this.request('POST', endpoint, data);
+  }
+
+  async put(endpoint, data) {
+    return this.request('PUT', endpoint, data);
+  }
+
+  async delete(endpoint) {
+    return this.request('DELETE', endpoint);
+  }
+}
+
+export default new APIClient();
