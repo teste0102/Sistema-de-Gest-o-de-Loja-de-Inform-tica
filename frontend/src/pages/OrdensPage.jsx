@@ -68,7 +68,7 @@ export default function OrdensPage() {
                   <td>{getStatusBadge(ordem.status)}</td>
                   <td>R$ {ordem.valor_total?.toFixed(2)}</td>
                   <td>
-                    <Button variant="sm" variant="outline-primary">
+                    <Button size="sm" variant="outline-primary">
                       ✏️
                     </Button>
                   </td>

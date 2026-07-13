@@ -1,26 +1,22 @@
 import axios from 'axios';
-import { openDB } from 'dexie';
+import Dexie from 'dexie';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 // Criar banco offline (IndexedDB)
-const db = openDB('LojaDB', 1, {
-  upgrade(db) {
-    // Criar stores para cache
-    if (!db.objectStoreNames.contains('clientes')) {
-      db.createObjectStore('clientes', { keyPath: 'id' });
-    }
-    if (!db.objectStoreNames.contains('ordens')) {
-      db.createObjectStore('ordens', { keyPath: 'id' });
-    }
-    if (!db.objectStoreNames.contains('lancamentos')) {
-      db.createObjectStore('lancamentos', { keyPath: 'id' });
-    }
-    if (!db.objectStoreNames.contains('syncQueue')) {
-      db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
-    }
-  },
-});
+class LojaDB extends Dexie {
+  constructor() {
+    super('LojaDB');
+    this.version(1).stores({
+      clientes: 'id',
+      ordens: 'id',
+      lancamentos: 'id',
+      syncQueue: '++id',
+    });
+  }
+}
+
+const db = new LojaDB();
 
 class APIClient {
   constructor() {

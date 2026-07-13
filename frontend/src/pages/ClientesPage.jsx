@@ -90,11 +90,11 @@ export default function ClientesPage() {
                     <td>{cliente.telefone}</td>
                     <td>{cliente.email}</td>
                     <td>
-                      <Button variant="sm" variant="outline-primary">
+                      <Button size="sm" variant="outline-primary">
                         ✏️
                       </Button>
                       {' '}
-                      <Button variant="sm" variant="outline-danger">
+                      <Button size="sm" variant="outline-danger">
                         🗑️
                       </Button>
                     </td>
