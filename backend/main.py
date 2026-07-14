@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from config import settings, detect_os, validate_db_connection
 from database import init_db, get_db
-from routes import clientes, ordens, financeiro, sync
+from routes import clientes, ordens, financeiro, sync, webhook
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -90,6 +90,7 @@ app.include_router(clientes.router, prefix="/api/clientes", tags=["Clientes"])
 app.include_router(ordens.router, prefix="/api/ordens", tags=["Ordens"])
 app.include_router(financeiro.router, prefix="/api/financeiro", tags=["Financeiro"])
 app.include_router(sync.router, prefix="/api/sync", tags=["Sincronização"])
+app.include_router(webhook.router, prefix="/api", tags=["Webhooks"])
 
 # ===== TRATAMENTO DE ERROS =====
 

@@ -3,7 +3,7 @@ models.py - Modelos SQLAlchemy (ORM)
 Define as tabelas do banco de dados
 """
 
-from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Float, ForeignKey, Boolean, JSON
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Float, ForeignKey, Boolean, JSON, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -34,7 +34,7 @@ class Cliente(Base):
 class OrdemServico(Base):
     """Tabela de Ordens de Serviço (de OS.MDB)"""
     __tablename__ = "ordens_servico"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     numero = Column(Integer, unique=True, index=True)
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
@@ -45,9 +45,27 @@ class OrdemServico(Base):
     tecnico = Column(String(60))
     observacoes = Column(Text)
     valor_total = Column(Float, default=0.0)
+
+    # NOVOS CAMPOS - Integração com Atendimento (Node.js)
+    node_os_id = Column(String(50))  # ID da OS no Node.js
+    node_senha_id = Column(String(50))  # ID da senha no Node.js
+
+    # Senhas
+    senha_tipo = Column(String(20))  # pin, padrao, biometria, nenhuma
+    senha_imagem = Column(LargeBinary)  # imagem do padrão
+    senha_cifrada = Column(String(255))  # senha criptografada
+
+    # Mídias
+    fotos = Column(JSON)  # [{id, url, data, descricao}, ...]
+    videos = Column(JSON)  # [{id, url, duracao, data}, ...]
+
+    # Rastreamento de sincronização
+    sincronizado_com_servidores = Column(JSON, default={})  # {servidor_id: timestamp}
+    apenas_novo_servidor = Column(Boolean, default=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relacionamentos
     cliente = relationship("Cliente", back_populates="ordens")
     itens = relationship("OrdemItem", back_populates="ordem", cascade="all, delete-orphan")
