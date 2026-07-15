@@ -15,7 +15,6 @@ from services.foto_service import FotoService
 
 
 router = APIRouter(
-    prefix="/api/os",
     tags=["Fotos"]
 )
 

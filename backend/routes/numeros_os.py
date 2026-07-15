@@ -14,7 +14,6 @@ from schemas import OrdemServicioResponse
 
 
 router = APIRouter(
-    prefix="/api/os",
     tags=["Ordem de Serviço - Números"]
 )
 
@@ -242,9 +241,12 @@ def obter_os_por_id(
                 detail=f"OS com ID {ordem_id} não encontrada"
             )
 
-        # Contar recursos associados
-        from models import Foto
-        total_fotos = db.query(Foto).filter_by(ordem_id=ordem_id).count()
+        # Contar recursos associados (fotos armazenadas em coluna JSON)
+        fotos_lista = ordem.fotos or []
+        if isinstance(fotos_lista, str):
+            import json as _json
+            fotos_lista = _json.loads(fotos_lista)
+        total_fotos = len(fotos_lista)
 
         return {
             "ok": True,

@@ -123,16 +123,16 @@ class LaudoService:
             "status": "pendente_assinatura"
         }
 
-        # Serializar para JSON
-        laudo_json = json.dumps(laudo_dados, indent=2, ensure_ascii=False)
-
         # Assinar digitalmente (RSA-2048)
-        assinatura = self.crypto.assinar_dados(laudo_json)
+        chave_privada_pem, chave_publica_pem = self.crypto.gerar_par_chaves_rsa(2048)
+        assinatura = self.crypto.assinar_dados(laudo_dados, chave_privada_pem)
 
-        # Armazenar na OS
+        # Armazenar na OS (incluindo chave pública e payload para validação futura)
         ordem.laudo_danos = danos
         ordem.laudo_data_criacao = datetime.now()
         ordem.laudo_assinatura_digital = assinatura
+        ordem.laudo_chave_publica = chave_publica_pem.decode("utf-8")
+        ordem.laudo_payload_assinado = json.dumps(laudo_dados, sort_keys=True, separators=(',', ':'))
 
         db.add(ordem)
         db.commit()
@@ -193,27 +193,16 @@ class LaudoService:
         if not ordem.laudo_assinatura_digital:
             return False, "Laudo não possui assinatura digital"
 
-        if not ordem.laudo_danos:
-            return False, "Laudo sem dados de danos"
+        if not ordem.laudo_payload_assinado or not ordem.laudo_chave_publica:
+            return False, "Laudo sem dados de validação (chave pública/payload)"
 
-        # Recriar JSON para validação
-        laudo_dados = {
-            "ordem_id": ordem_id,
-            "numero_os": ordem.numero_os,
-            "marca": ordem.marca,
-            "modelo": ordem.modelo,
-            "imei": ordem.imei,
-            "danos": ordem.laudo_danos,
-            "total_danos": len(ordem.laudo_danos) if ordem.laudo_danos else 0
-        }
-
-        laudo_json = json.dumps(laudo_dados, indent=2, ensure_ascii=False)
-
-        # Validar assinatura
+        # Validar assinatura usando o payload e a chave pública armazenados
         try:
+            laudo_dados = json.loads(ordem.laudo_payload_assinado)
             assinatura_valida = self.crypto.validar_assinatura(
-                laudo_json,
-                ordem.laudo_assinatura_digital
+                laudo_dados,
+                ordem.laudo_assinatura_digital,
+                ordem.laudo_chave_publica.encode("utf-8")
             )
             if assinatura_valida:
                 return True, "Laudo íntegro e válido"

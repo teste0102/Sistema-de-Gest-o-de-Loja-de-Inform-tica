@@ -8,6 +8,8 @@ import Dashboard from './pages/Dashboard';
 import ClientesPage from './pages/ClientesPage';
 import OrdensPage from './pages/OrdensPage';
 import FinanceiroPage from './pages/FinanceiroPage';
+import OSPage from './pages/OSPage';
+import SincronizacaoPage from './pages/SincronizacaoPage';
 
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -58,7 +60,9 @@ function App() {
                 <Nav.Link href="/">Dashboard</Nav.Link>
                 <Nav.Link href="/clientes">Clientes</Nav.Link>
                 <Nav.Link href="/ordens">Ordens</Nav.Link>
+                <Nav.Link href="/os">Ferramentas OS</Nav.Link>
                 <Nav.Link href="/financeiro">Financeiro</Nav.Link>
+                <Nav.Link href="/sincronizacao">Sincronização</Nav.Link>
               </Nav>
               <div className="ms-3">
                 <span className={`badge ${isOnline ? 'bg-success' : 'bg-danger'}`}>
@@ -89,7 +93,9 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/clientes" element={<ClientesPage />} />
             <Route path="/ordens" element={<OrdensPage />} />
+            <Route path="/os" element={<OSPage />} />
             <Route path="/financeiro" element={<FinanceiroPage />} />
+            <Route path="/sincronizacao" element={<SincronizacaoPage />} />
           </Routes>
         </Container>
       </div>

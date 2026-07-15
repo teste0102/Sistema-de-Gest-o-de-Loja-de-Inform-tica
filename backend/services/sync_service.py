@@ -126,6 +126,36 @@ class SyncService:
             "status": "verde" if pendentes == 0 else "amarelo" if antigos == 0 else "vermelho"
         }
 
+    def registrar_servidor_remoto(
+        self,
+        db: Session,
+        nome: str,
+        url: str,
+        chave_api: str,
+        ativo: bool = True
+    ) -> Dict:
+        """Registra novo servidor remoto para sincronização"""
+        from models import ServidorRemoto
+
+        servidor = ServidorRemoto(
+            nome=nome,
+            url=url,
+            chave_api=chave_api,
+            ativo=ativo
+        )
+        db.add(servidor)
+        db.commit()
+        db.refresh(servidor)
+
+        return {
+            "ok": True,
+            "servidor_id": servidor.id,
+            "nome": servidor.nome,
+            "url": servidor.url,
+            "ativo": servidor.ativo,
+            "mensagem": f"Servidor '{nome}' registrado com sucesso"
+        }
+
     def detectar_conflito(
         self,
         dados_local: Dict,

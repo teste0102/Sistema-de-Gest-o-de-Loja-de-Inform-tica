@@ -37,11 +37,13 @@ class OrdemServico(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     numero = Column(Integer, unique=True, index=True)
+    numero_os = Column(String(20), unique=True, index=True)  # Formato: OS-YYYYMMDD-XXXXX
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
     descricao = Column(Text)
-    data_abertura = Column(Date, nullable=False, index=True)
+    data_abertura = Column(Date, index=True)
+    data_criacao = Column(DateTime, default=datetime.utcnow, index=True)
     data_fechamento = Column(Date)
-    status = Column(String(20), default="aberto")  # aberto, fechado, suspenso
+    status = Column(String(20), default="aberto")  # aberto, fechado, suspenso, aberta
     tecnico = Column(String(60))
     observacoes = Column(Text)
     valor_total = Column(Float, default=0.0)
@@ -57,7 +59,7 @@ class OrdemServico(Base):
 
     # Senhas
     senha_tipo = Column(String(20))  # pin, padrao, biometria, nenhuma
-    senha_imagem = Column(LargeBinary)  # imagem do padrão
+    senha_imagem = Column(Text)  # imagem do padrão (base64)
     senha_cifrada = Column(String(255))  # senha criptografada
 
     # Replay de digitação (sequência de toques)
@@ -69,6 +71,8 @@ class OrdemServico(Base):
 
     # Laudo Técnico (relatório final)
     laudo_assinatura_digital = Column(Text)  # Assinatura RSA-2048 do técnico
+    laudo_chave_publica = Column(Text)  # Chave pública RSA para validar a assinatura
+    laudo_payload_assinado = Column(Text)  # Payload exato que foi assinado (para validação)
     laudo_danos = Column(JSON)  # [{tipo, descricao, foto_ids}, ...]
     laudo_data_criacao = Column(DateTime)  # Quando o laudo foi criado
     laudo_assinado_cliente = Column(Boolean, default=False)  # Assinatura do cliente com caneta USB
@@ -134,6 +138,19 @@ class SyncQueue(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     sincronizado = Column(Boolean, default=False)
     erro = Column(Text)
+
+class ServidorRemoto(Base):
+    """Servidores remotos para sincronização multi-servidor"""
+    __tablename__ = "servidores_remotos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String(120), nullable=False)
+    url = Column(String(255), nullable=False)
+    chave_api = Column(String(255))
+    ativo = Column(Boolean, default=True)
+    ultima_sincronizacao = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class AuditLog(Base):
     """Log de auditoria de todas operações"""

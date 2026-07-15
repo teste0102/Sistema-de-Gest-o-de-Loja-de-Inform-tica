@@ -15,7 +15,6 @@ from utils.crypto_service import CryptoService
 
 
 router = APIRouter(
-    prefix="/api/sync",
     tags=["Sincronização"]
 )
 

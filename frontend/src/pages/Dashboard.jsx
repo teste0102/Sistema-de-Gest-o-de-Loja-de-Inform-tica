@@ -108,8 +108,14 @@ export default function Dashboard() {
                 <a href="/ordens" className="btn btn-outline-primary">
                   📋 Nova Ordem
                 </a>
+                <a href="/os" className="btn btn-outline-primary">
+                  🔧 Ferramentas OS (Senha / Fotos / Laudo)
+                </a>
                 <a href="/financeiro" className="btn btn-outline-primary">
                   💰 Lançar Receita
+                </a>
+                <a href="/sincronizacao" className="btn btn-outline-primary">
+                  🔄 Sincronização Multi-Servidor
                 </a>
               </div>
             </Card.Body>

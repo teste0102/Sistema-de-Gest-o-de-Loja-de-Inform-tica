@@ -1,0 +1,422 @@
+import React, { useState } from 'react';
+import { Container, Card, Button, Row, Col, Form, Tabs, Tab, Alert, Table, Badge, Spinner } from 'react-bootstrap';
+import api from '../services/api';
+
+export default function OSPage() {
+  // Estado geral
+  const [ordemId, setOrdemId] = useState('');
+  const [ordemAtiva, setOrdemAtiva] = useState(null);
+  const [msg, setMsg] = useState(null);
+
+  // Gerar número OS
+  const [clienteId, setClienteId] = useState('');
+  const [gerando, setGerando] = useState(false);
+
+  // Senha
+  const [senhaTipo, setSenhaTipo] = useState('pin');
+  const [senhaValor, setSenhaValor] = useState('');
+  const [senhaInfo, setSenhaInfo] = useState(null);
+
+  // Fotos
+  const [fotos, setFotos] = useState([]);
+  const [arquivo, setArquivo] = useState(null);
+  const [descricaoFoto, setDescricaoFoto] = useState('');
+
+  // Laudo
+  const [laudo, setLaudo] = useState(null);
+  const [obsLaudo, setObsLaudo] = useState('');
+
+  const flash = (variant, texto) => {
+    setMsg({ variant, texto });
+    setTimeout(() => setMsg(null), 5000);
+  };
+
+  // ===== NÚMERO OS =====
+  const gerarNumeroOS = async () => {
+    if (!clienteId) return flash('warning', 'Informe o ID do cliente');
+    try {
+      setGerando(true);
+      const res = await api.post(`/api/os/gerar-numero?cliente_id=${clienteId}`);
+      flash('success', `OS gerada: ${res.numero_os} (ID: ${res.ordem_id})`);
+      setOrdemId(String(res.ordem_id));
+      setOrdemAtiva(res);
+    } catch (e) {
+      flash('danger', `Erro ao gerar OS: ${e.response?.data?.detail || e.message}`);
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const carregarOS = async () => {
+    if (!ordemId) return flash('warning', 'Informe o ID da OS');
+    try {
+      const res = await api.get(`/api/os/${ordemId}`);
+      setOrdemAtiva(res);
+      flash('success', `OS ${res.numero_os} carregada`);
+      // Carregar recursos vinculados
+      carregarFotos();
+      carregarSenha();
+      carregarLaudo();
+    } catch (e) {
+      flash('danger', `Erro ao carregar OS: ${e.response?.data?.detail || e.message}`);
+      setOrdemAtiva(null);
+    }
+  };
+
+  // ===== SENHA =====
+  const carregarSenha = async () => {
+    if (!ordemId) return;
+    try {
+      const res = await api.get(`/api/os/${ordemId}/senhas`);
+      setSenhaInfo(res);
+    } catch (e) {
+      setSenhaInfo(null);
+    }
+  };
+
+  const criarSenha = async () => {
+    if (!ordemId) return flash('warning', 'Carregue uma OS primeiro');
+    try {
+      const body = { tipo: senhaTipo };
+      if (senhaTipo === 'pin') body.valor = senhaValor;
+      await api.post(`/api/os/${ordemId}/senhas`, body);
+      flash('success', `Senha ${senhaTipo} criada com sucesso`);
+      setSenhaValor('');
+      carregarSenha();
+    } catch (e) {
+      flash('danger', `Erro ao criar senha: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  const gerarSenhaAleatoria = async () => {
+    if (!ordemId) return flash('warning', 'Carregue uma OS primeiro');
+    try {
+      const res = await api.post(`/api/os/${ordemId}/senhas/gerar?tipo=pin&tamanho=4`);
+      flash('success', `PIN gerado: ${res.valor}`);
+      setSenhaValor(res.valor);
+    } catch (e) {
+      flash('danger', `Erro ao gerar senha: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  const deletarSenha = async () => {
+    if (!ordemId) return;
+    try {
+      await api.delete(`/api/os/${ordemId}/senhas`);
+      flash('success', 'Senha removida');
+      carregarSenha();
+    } catch (e) {
+      flash('danger', `Erro ao remover senha: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  // ===== FOTOS =====
+  const carregarFotos = async () => {
+    if (!ordemId) return;
+    try {
+      const res = await api.get(`/api/os/${ordemId}/fotos`);
+      setFotos(res.fotos || []);
+    } catch (e) {
+      setFotos([]);
+    }
+  };
+
+  const uploadFoto = async () => {
+    if (!ordemId) return flash('warning', 'Carregue uma OS primeiro');
+    if (!arquivo) return flash('warning', 'Selecione um arquivo');
+    try {
+      const formData = new FormData();
+      formData.append('arquivo', arquivo);
+      formData.append('descricao', descricaoFoto);
+      const axios = (await import('axios')).default;
+      const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      await axios.post(`${API_BASE}/api/os/${ordemId}/fotos/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      flash('success', 'Foto enviada com sucesso');
+      setArquivo(null);
+      setDescricaoFoto('');
+      carregarFotos();
+    } catch (e) {
+      flash('danger', `Erro ao enviar foto: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  const deletarFoto = async (fotoId) => {
+    try {
+      await api.delete(`/api/os/${ordemId}/fotos/${fotoId}`);
+      flash('success', 'Foto removida');
+      carregarFotos();
+    } catch (e) {
+      flash('danger', `Erro ao remover foto: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  // ===== LAUDO =====
+  const carregarLaudo = async () => {
+    if (!ordemId) return;
+    try {
+      const res = await api.get(`/api/os/${ordemId}/laudo`);
+      setLaudo(res.laudo);
+    } catch (e) {
+      setLaudo(null);
+    }
+  };
+
+  const criarLaudo = async () => {
+    if (!ordemId) return flash('warning', 'Carregue uma OS primeiro');
+    try {
+      const body = {
+        danos: [
+          { tipo: 'tela', descricao: 'Dano registrado via sistema', severidade: 'media', foto_ids: [] },
+        ],
+        observacoes_gerais: obsLaudo,
+        recomendacoes: [],
+      };
+      await api.post(`/api/os/${ordemId}/laudo`, body);
+      flash('success', 'Laudo técnico criado (assinado digitalmente RSA-2048)');
+      setObsLaudo('');
+      carregarLaudo();
+    } catch (e) {
+      flash('danger', `Erro ao criar laudo: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  const validarLaudo = async () => {
+    if (!ordemId) return;
+    try {
+      const res = await api.post(`/api/os/${ordemId}/laudo/validar`);
+      flash(res.valido ? 'success' : 'warning', `Validação: ${res.mensagem}`);
+    } catch (e) {
+      flash('danger', `Erro ao validar laudo: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  return (
+    <Container>
+      <Row className="mb-4">
+        <Col>
+          <h1>🔧 Ordem de Serviço — Ferramentas</h1>
+          <p className="text-muted">Número OS, Senhas, Fotos e Laudo Técnico</p>
+        </Col>
+      </Row>
+
+      {msg && <Alert variant={msg.variant}>{msg.texto}</Alert>}
+
+      {/* Gerar / Carregar OS */}
+      <Row>
+        <Col md={6} className="mb-4">
+          <Card>
+            <Card.Header>🆕 Gerar Nova OS</Card.Header>
+            <Card.Body>
+              <Form.Group className="mb-3">
+                <Form.Label>ID do Cliente</Form.Label>
+                <Form.Control
+                  type="number"
+                  placeholder="Ex: 1"
+                  value={clienteId}
+                  onChange={(e) => setClienteId(e.target.value)}
+                />
+              </Form.Group>
+              <Button variant="primary" onClick={gerarNumeroOS} disabled={gerando}>
+                {gerando ? <Spinner size="sm" /> : '🆕 Gerar Número OS'}
+              </Button>
+            </Card.Body>
+          </Card>
+        </Col>
+
+        <Col md={6} className="mb-4">
+          <Card>
+            <Card.Header>📂 Carregar OS Existente</Card.Header>
+            <Card.Body>
+              <Form.Group className="mb-3">
+                <Form.Label>ID da OS</Form.Label>
+                <Form.Control
+                  type="number"
+                  placeholder="Ex: 1"
+                  value={ordemId}
+                  onChange={(e) => setOrdemId(e.target.value)}
+                />
+              </Form.Group>
+              <Button variant="outline-primary" onClick={carregarOS}>
+                📂 Carregar OS
+              </Button>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      {ordemAtiva && (
+        <Card className="mb-4">
+          <Card.Body>
+            <h5>
+              OS Ativa: <Badge bg="info">{ordemAtiva.numero_os}</Badge>{' '}
+              <Badge bg="secondary">ID {ordemAtiva.ordem_id || ordemAtiva.id}</Badge>{' '}
+              <Badge bg="success">{ordemAtiva.status}</Badge>
+            </h5>
+          </Card.Body>
+        </Card>
+      )}
+
+      {/* Ferramentas por OS */}
+      <Card>
+        <Card.Body>
+          <Tabs defaultActiveKey="senha" className="mb-3">
+            {/* SENHA */}
+            <Tab eventKey="senha" title="🔐 Senha">
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Tipo de Senha</Form.Label>
+                    <Form.Select value={senhaTipo} onChange={(e) => setSenhaTipo(e.target.value)}>
+                      <option value="pin">PIN (4-6 dígitos)</option>
+                      <option value="padrao">Padrão</option>
+                      <option value="nenhuma">Nenhuma</option>
+                    </Form.Select>
+                  </Form.Group>
+                  {senhaTipo === 'pin' && (
+                    <Form.Group className="mb-3">
+                      <Form.Label>Valor do PIN</Form.Label>
+                      <Form.Control
+                        type="text"
+                        placeholder="Ex: 1234"
+                        value={senhaValor}
+                        onChange={(e) => setSenhaValor(e.target.value)}
+                      />
+                    </Form.Group>
+                  )}
+                  <Button variant="primary" onClick={criarSenha} className="me-2">
+                    💾 Salvar Senha
+                  </Button>
+                  {senhaTipo === 'pin' && (
+                    <Button variant="outline-secondary" onClick={gerarSenhaAleatoria} className="me-2">
+                      🎲 Gerar PIN
+                    </Button>
+                  )}
+                  <Button variant="outline-danger" onClick={deletarSenha}>
+                    🗑️ Remover
+                  </Button>
+                </Col>
+                <Col md={6}>
+                  <Card bg="light">
+                    <Card.Body>
+                      <h6>Status da Senha</h6>
+                      {senhaInfo?.tem_senha ? (
+                        <>
+                          <p className="mb-1">Tipo: <Badge bg="info">{senhaInfo.tipo}</Badge></p>
+                          <p className="mb-0 text-muted small">{senhaInfo.mensagem_seguranca}</p>
+                        </>
+                      ) : (
+                        <p className="text-muted mb-0">Nenhuma senha cadastrada</p>
+                      )}
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+            </Tab>
+
+            {/* FOTOS */}
+            <Tab eventKey="fotos" title="📷 Fotos">
+              <Row className="mb-3">
+                <Col md={5}>
+                  <Form.Group className="mb-2">
+                    <Form.Label>Arquivo de Imagem</Form.Label>
+                    <Form.Control
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setArquivo(e.target.files[0])}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={5}>
+                  <Form.Group className="mb-2">
+                    <Form.Label>Descrição</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="Ex: Tela quebrada"
+                      value={descricaoFoto}
+                      onChange={(e) => setDescricaoFoto(e.target.value)}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={2} className="d-flex align-items-end">
+                  <Button variant="primary" onClick={uploadFoto} className="mb-2 w-100">
+                    ⬆️ Enviar
+                  </Button>
+                </Col>
+              </Row>
+              <Table hover responsive size="sm">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Descrição</th>
+                    <th>Tipo Dano</th>
+                    <th>Tamanho</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fotos.map((f) => (
+                    <tr key={f.id}>
+                      <td className="small">{f.id?.substring(0, 8)}...</td>
+                      <td>{f.descricao}</td>
+                      <td>{f.tipo_dano || '-'}</td>
+                      <td>{f.tamanho} bytes</td>
+                      <td>
+                        <Button size="sm" variant="outline-danger" onClick={() => deletarFoto(f.id)}>
+                          🗑️
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+              {fotos.length === 0 && <p className="text-center text-muted">Nenhuma foto</p>}
+            </Tab>
+
+            {/* LAUDO */}
+            <Tab eventKey="laudo" title="📄 Laudo Técnico">
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Observações Gerais</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={3}
+                      placeholder="Descreva o estado do equipamento..."
+                      value={obsLaudo}
+                      onChange={(e) => setObsLaudo(e.target.value)}
+                    />
+                  </Form.Group>
+                  <Button variant="primary" onClick={criarLaudo} className="me-2">
+                    📝 Criar Laudo
+                  </Button>
+                  <Button variant="outline-info" onClick={validarLaudo}>
+                    🔏 Validar Assinatura
+                  </Button>
+                </Col>
+                <Col md={6}>
+                  <Card bg="light">
+                    <Card.Body>
+                      <h6>Laudo Atual</h6>
+                      {laudo ? (
+                        <>
+                          <p className="mb-1">✅ Laudo criado e assinado digitalmente</p>
+                          <p className="mb-0 text-muted small">
+                            {JSON.stringify(laudo).substring(0, 120)}...
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-muted mb-0">Nenhum laudo criado</p>
+                      )}
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+            </Tab>
+          </Tabs>
+        </Card.Body>
+      </Card>
+    </Container>
+  );
+}

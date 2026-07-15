@@ -17,7 +17,6 @@ from utils.crypto_service import CryptoService
 
 
 router = APIRouter(
-    prefix="/api/os",
     tags=["Laudo Técnico"]
 )
 
