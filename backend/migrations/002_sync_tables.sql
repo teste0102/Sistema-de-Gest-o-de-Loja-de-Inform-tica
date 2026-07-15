@@ -12,19 +12,14 @@ CREATE TABLE IF NOT EXISTS sync_queue (
     tabela VARCHAR(50) NOT NULL,
     operacao VARCHAR(20) NOT NULL,
     registro_id INTEGER NOT NULL,
-    dados_json LONGTEXT,
+    dados_json TEXT,
     hash_dados VARCHAR(100),
     estado VARCHAR(20) DEFAULT 'pendente',
     tentativas INTEGER DEFAULT 0,
     erro_mensagem TEXT,
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     data_sincronizacao TIMESTAMP,
-    sincronizado BOOLEAN DEFAULT FALSE,
-
-    INDEX idx_tabela (tabela),
-    INDEX idx_estado (estado),
-    INDEX idx_sincronizado (sincronizado),
-    INDEX idx_data (data_criacao)
+    sincronizado BOOLEAN DEFAULT FALSE
 );
 
 -- ============================================================================
@@ -40,10 +35,7 @@ CREATE TABLE IF NOT EXISTS servidores_remotos (
     ultima_sincronizacao TIMESTAMP,
     status_conexao VARCHAR(20) DEFAULT 'desconectado',
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    INDEX idx_ativo (ativo),
-    INDEX idx_status (status_conexao)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================================
@@ -54,18 +46,14 @@ CREATE TABLE IF NOT EXISTS conflitos_sync (
     id SERIAL PRIMARY KEY,
     tabela VARCHAR(50) NOT NULL,
     registro_id INTEGER NOT NULL,
-    dados_local LONGTEXT,
-    dados_remoto LONGTEXT,
+    dados_local TEXT,
+    dados_remoto TEXT,
     tipo_conflito VARCHAR(50),
     estrategia_resolucao VARCHAR(50),
-    dados_resolvidos LONGTEXT,
+    dados_resolvidos TEXT,
     resolvido BOOLEAN DEFAULT FALSE,
     data_deteccao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    data_resolucao TIMESTAMP,
-
-    INDEX idx_tabela (tabela),
-    INDEX idx_resolvido (resolvido),
-    INDEX idx_data (data_deteccao)
+    data_resolucao TIMESTAMP
 );
 
 -- ============================================================================
@@ -82,11 +70,7 @@ CREATE TABLE IF NOT EXISTS historico_sincronizacao (
     duracao_ms INTEGER,
     resultado VARCHAR(20),
     mensagem TEXT,
-    data_sincronizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    INDEX idx_servidor (servidor_id),
-    INDEX idx_resultado (resultado),
-    INDEX idx_data (data_sincronizacao)
+    data_sincronizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================================
@@ -97,14 +81,12 @@ CREATE TABLE IF NOT EXISTS cache_offline (
     id SERIAL PRIMARY KEY,
     entidade VARCHAR(50) NOT NULL,
     entidade_id INTEGER NOT NULL,
-    dados_json LONGTEXT,
+    dados_json TEXT,
     hash_dados VARCHAR(100),
     versao INTEGER DEFAULT 1,
     data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    UNIQUE(entidade, entidade_id),
-    INDEX idx_entidade (entidade),
-    INDEX idx_data (data_atualizacao)
+    UNIQUE(entidade, entidade_id)
 );
 
 -- ============================================================================

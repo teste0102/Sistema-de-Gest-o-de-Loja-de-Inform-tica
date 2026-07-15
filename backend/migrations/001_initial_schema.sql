@@ -41,21 +41,17 @@ CREATE TABLE IF NOT EXISTS ordens_servico (
     node_senha_id VARCHAR(50),
     senha_tipo VARCHAR(20),
     senha_cifrada TEXT,
-    senha_imagem LONGTEXT,
+    senha_imagem TEXT,
 
     -- Laudo Técnico
     laudo_assinatura_digital TEXT,
-    laudo_dados LONGTEXT,
+    laudo_dados TEXT,
 
     -- Replay de Digitação
-    replay_dados LONGTEXT,
+    replay_dados TEXT,
 
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    INDEX idx_cliente (cliente_id),
-    INDEX idx_numero_os (numero_os),
-    INDEX idx_status (status)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================================
@@ -73,11 +69,7 @@ CREATE TABLE IF NOT EXISTS fotos (
     tamanho INTEGER,
     descricao TEXT,
     tipo_dano VARCHAR(50),
-    data_upload TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    INDEX idx_ordem (ordem_id),
-    INDEX idx_cliente (cliente_id),
-    INDEX idx_tipo_dano (tipo_dano)
+    data_upload TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================================
@@ -91,10 +83,7 @@ CREATE TABLE IF NOT EXISTS lancamentos (
     descricao TEXT,
     valor DECIMAL(10, 2),
     data_lancamento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(20) DEFAULT 'pendente',
-
-    INDEX idx_cliente (cliente_id),
-    INDEX idx_ordem (ordem_id)
+    status VARCHAR(20) DEFAULT 'pendente'
 );
 
 -- ============================================================================
@@ -107,9 +96,7 @@ CREATE TABLE IF NOT EXISTS contador_os_diario (
     data_contagem DATE NOT NULL,
     sequencial INTEGER DEFAULT 0,
 
-    UNIQUE(cliente_id, data_contagem),
-    INDEX idx_cliente (cliente_id),
-    INDEX idx_data (data_contagem)
+    UNIQUE(cliente_id, data_contagem)
 );
 
 -- ============================================================================
