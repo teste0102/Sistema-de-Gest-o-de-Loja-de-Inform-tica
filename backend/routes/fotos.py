@@ -8,10 +8,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List, Dict, Optional
 
-from backend.database import get_db
-from backend.models import OrdemServico
-from backend.services.numero_os_service import NumeroOSService
-from backend.services.foto_service import FotoService
+from ..database import get_db
+from ..models import OrdemServico
+from ..services.numero_os_service import NumeroOSService
+from ..services.foto_service import FotoService
 
 
 router = APIRouter(
