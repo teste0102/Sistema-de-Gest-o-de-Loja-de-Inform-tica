@@ -24,15 +24,59 @@ sudo apt install -y python3.11 python3-pip nodejs npm postgresql postgresql-cont
 
 ---
 
-## 🚀 Instalação Rápida
+## 🐳 Guia Rápido com Docker Compose (RECOMENDADO)
+
+A forma mais fácil de começar! Tudo funciona em containers isolados.
 
 ### 1. Clone o Repositório
 ```bash
-git clone https://github.com/seu-usuario/projeto-loja.git
-cd projeto-loja
+git clone https://github.com/teste0102/sistema-de-gest-o-de-loja-de-inform-tica.git
+cd sistema-de-gest-o-de-loja-de-inform-tica
 ```
 
-### 2. Backend - Python/FastAPI
+### 2. Execute o Script de Setup
+```bash
+# Linux/macOS
+bash setup.sh
+
+# Windows (PowerShell ou CMD)
+setup.bat
+```
+
+### 3. Inicie os Serviços
+```bash
+docker-compose up --build
+```
+
+### 4. Acesse os Serviços
+- **Frontend:** http://localhost:3000
+- **Backend:** http://localhost:8000 (Swagger: http://localhost:8000/docs)
+- **pgAdmin:** http://localhost:5050
+- **Banco de Dados:** localhost:5432
+
+### Credenciais Padrão
+```
+pgAdmin:
+  Email: admin@loja.com
+  Senha: admin
+
+PostgreSQL:
+  Usuário: postgres
+  Senha: postgres
+  Banco: loja_informatica
+```
+
+---
+
+## 🚀 Instalação Manual (Alternativa)
+
+### 1. Clone o Repositório
+```bash
+git clone https://github.com/teste0102/sistema-de-gest-o-de-loja-de-inform-tica.git
+cd sistema-de-gest-o-de-loja-de-inform-tica
+```
+
+### 2. Backend - Python/FastAPI (Instalação Manual)
 
 #### 2.1 Criar Ambiente Virtual
 ```bash
@@ -303,7 +347,42 @@ npm run electron-build
 
 ## 🐛 Troubleshooting
 
-### "ModuleNotFoundError: No module named 'fastapi'"
+### Docker Compose
+
+#### "role 'loja' does not exist" / Erro de conexão ao banco
+```bash
+# Certifique-se de que executou o setup.sh (ou setup.bat no Windows)
+bash setup.sh  # Linux/macOS
+setup.bat      # Windows
+
+# Depois recrie os containers
+docker-compose down --remove-orphans
+docker-compose up --build
+```
+
+#### "Found orphan containers"
+```bash
+# Remova containers órfãos
+docker-compose down --remove-orphans
+docker-compose up --build
+```
+
+#### Erro "Docker daemon not running"
+- **Windows:** Abra o Docker Desktop
+- **Linux:** Execute `sudo systemctl start docker`
+- **macOS:** Inicie o Docker app
+
+#### Quer resetar tudo e começar do zero?
+```bash
+docker-compose down -v  # Remove volumes (DB será resetada!)
+docker-compose up --build
+```
+
+---
+
+### Instalação Manual
+
+#### "ModuleNotFoundError: No module named 'fastapi'"
 ```bash
 cd backend
 pip install -r requirements.txt
