@@ -78,10 +78,9 @@ class APIClient {
     if (endpoint.includes('financeiro')) storeName = 'lancamentos';
 
     if (storeName && data.items) {
-      const dbInstance = await db;
-      await dbInstance.clear(storeName);
+      await db[storeName].clear();
       for (const item of data.items) {
-        await dbInstance.add(storeName, item);
+        await db[storeName].add(item);
       }
     }
   }
@@ -94,14 +93,12 @@ class APIClient {
 
     if (!storeName) return null;
 
-    const dbInstance = await db;
-    const items = await dbInstance.getAll(storeName);
+    const items = await db[storeName].toArray();
     return { items, total: items.length };
   }
 
   async addToSyncQueue(tabela, operacao, registro_id, dados) {
-    const dbInstance = await db;
-    await dbInstance.add('syncQueue', {
+    await db.syncQueue.add({
       tabela,
       operacao,
       registro_id,
@@ -111,8 +108,7 @@ class APIClient {
   }
 
   async syncQueue() {
-    const dbInstance = await db;
-    const itens = await dbInstance.getAll('syncQueue');
+    const itens = await db.syncQueue.toArray();
 
     if (itens.length === 0) return;
 
@@ -123,8 +119,7 @@ class APIClient {
       });
 
       if (response.data.status === 'success') {
-        // Limpar queue
-        await dbInstance.clear('syncQueue');
+        await db.syncQueue.clear();
         console.log(`✅ ${response.data.sincronizados} registros sincronizados`);
       }
     } catch (error) {
