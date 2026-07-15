@@ -50,9 +50,11 @@ class APIClient {
 
       response = await axios(config);
 
-      // Sucesso: salvar no cache local
+      // Sucesso: salvar no cache local (best-effort, nunca quebra a UI)
       if (response.status === 200 || response.status === 201) {
-        this.cacheResponse(endpoint, response.data);
+        this.cacheResponse(endpoint, response.data).catch((e) =>
+          console.warn('Cache local falhou (ignorado):', e.message)
+        );
         return response.data;
       }
 
@@ -77,11 +79,14 @@ class APIClient {
     if (endpoint.includes('ordens')) storeName = 'ordens';
     if (endpoint.includes('financeiro')) storeName = 'lancamentos';
 
-    if (storeName && data.items) {
-      await db[storeName].clear();
-      for (const item of data.items) {
-        await db[storeName].add(item);
+    // Cache é best-effort: qualquer falha é ignorada e não afeta a UI
+    try {
+      if (storeName && data && Array.isArray(data.items) && db[storeName]) {
+        await db[storeName].clear();
+        await db[storeName].bulkAdd(data.items);
       }
+    } catch (e) {
+      console.warn(`Falha ao cachear ${storeName} (ignorado):`, e.message);
     }
   }
 
