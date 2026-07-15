@@ -7,10 +7,10 @@ from sqlalchemy.orm import Session
 from typing import List, Dict
 from datetime import datetime
 
-from ..database import get_db
-from ..models import OrdemServico, Cliente
-from ..services.numero_os_service import NumeroOSService
-from ..schemas import OrdemServicioResponse
+from database import get_db
+from models import OrdemServico, Cliente
+from services.numero_os_service import NumeroOSService
+from schemas import OrdemServicioResponse
 
 
 router = APIRouter(
@@ -243,7 +243,7 @@ def obter_os_por_id(
             )
 
         # Contar recursos associados
-        from ..models import Foto
+        from models import Foto
         total_fotos = db.query(Foto).filter_by(ordem_id=ordem_id).count()
 
         return {

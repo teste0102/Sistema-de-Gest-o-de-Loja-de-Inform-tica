@@ -9,11 +9,11 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Optional
 from datetime import datetime
 
-from ..database import get_db
-from ..models import OrdemServico
-from ..services.numero_os_service import NumeroOSService
-from ..services.laudo_service import LaudoService
-from ..utils.crypto_service import CryptoService
+from database import get_db
+from models import OrdemServico
+from services.numero_os_service import NumeroOSService
+from services.laudo_service import LaudoService
+from utils.crypto_service import CryptoService
 
 
 router = APIRouter(
