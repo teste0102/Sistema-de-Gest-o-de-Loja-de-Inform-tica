@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     DB_TYPE: str = os.getenv("DB_TYPE", "postgresql")  # postgresql ou access
     
     # PostgreSQL
-    DB_HOST: str = os.getenv("DB_HOST", "localhost")
+    DB_HOST: str = os.getenv("DB_HOST", "postgres")
     DB_PORT: int = int(os.getenv("DB_PORT", 5432))
     DB_USER: str = os.getenv("DB_USER", "postgres")
     DB_PASSWORD: str = os.getenv("DB_PASSWORD", "postgres")
