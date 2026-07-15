@@ -38,7 +38,7 @@ if not exist ".env" (
     echo Criando arquivo .env padrao...
     (
         echo # Database
-        echo DATABASE_URL=postgresql://postgres:postgres@db:5432/loja_informatica
+        echo DATABASE_URL=postgresql://postgres:postgres@postgres:5432/loja_informatica
         echo POSTGRES_USER=postgres
         echo POSTGRES_PASSWORD=postgres
         echo POSTGRES_DB=loja_informatica
@@ -94,7 +94,7 @@ echo [5/6] Executando migrations SQL...
 
 if exist "backend\migrations\001_criar_tabelas_os_completo.sql" (
     echo Executando: 001_criar_tabelas_os_completo.sql
-    docker-compose exec -T db psql -U postgres -d loja_informatica -f /dev/stdin ^< backend\migrations\001_criar_tabelas_os_completo.sql
+    docker-compose exec -T postgres psql -U postgres -d loja_informatica -f /dev/stdin ^< backend\migrations\001_criar_tabelas_os_completo.sql
     color 0A
     echo ✅ Migration 001 concluida
 ) else (
@@ -104,7 +104,7 @@ if exist "backend\migrations\001_criar_tabelas_os_completo.sql" (
 
 if exist "backend\migrations\002_adicionar_campos_essenciais_os.sql" (
     echo Executando: 002_adicionar_campos_essenciais_os.sql
-    docker-compose exec -T db psql -U postgres -d loja_informatica -f /dev/stdin ^< backend\migrations\002_adicionar_campos_essenciais_os.sql
+    docker-compose exec -T postgres psql -U postgres -d loja_informatica -f /dev/stdin ^< backend\migrations\002_adicionar_campos_essenciais_os.sql
     color 0A
     echo ✅ Migration 002 concluida
 ) else (

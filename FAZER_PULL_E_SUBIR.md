@@ -84,7 +84,7 @@ mkdir data\postgres -Force
 # 3. Criar .env (se não existir)
 if (-not (Test-Path .env)) {
     @"
-DATABASE_URL=postgresql://postgres:postgres@db:5432/loja_informatica
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/loja_informatica
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_DB=loja_informatica
@@ -104,11 +104,11 @@ Start-Sleep -Seconds 20
 
 # 6. Executar primeira migration
 Write-Host "Executando migration 001..." -ForegroundColor Green
-docker compose exec db psql -U postgres -d loja_informatica -f /dev/stdin < backend/migrations/001_criar_tabelas_os_completo.sql
+docker compose exec postgres psql -U postgres -d loja_informatica -f /dev/stdin < backend/migrations/001_criar_tabelas_os_completo.sql
 
 # 7. Executar segunda migration
 Write-Host "Executando migration 002..." -ForegroundColor Green
-docker compose exec db psql -U postgres -d loja_informatica -f /dev/stdin < backend/migrations/002_adicionar_campos_essenciais_os.sql
+docker compose exec postgres psql -U postgres -d loja_informatica -f /dev/stdin < backend/migrations/002_adicionar_campos_essenciais_os.sql
 
 Write-Host "✅ Servidor iniciado com sucesso!" -ForegroundColor Green
 Write-Host "Acesse: http://localhost:8000/docs" -ForegroundColor Cyan
@@ -217,7 +217,7 @@ docker compose logs postgres
 ### ❌ Migrations falhando
 **Solução:** Verificar se banco está pronto:
 ```powershell
-docker compose exec postgres pg_isready -U postgres
+docker compose exec -T postgres pg_isready -U postgres
 ```
 
 Se retornar "accepting connections", banco está pronto. Se não, aguarde mais.

@@ -22,7 +22,7 @@ O script vai automaticamente:
 **2. Criar arquivo `.env`:**
 ```powershell
 @"
-DATABASE_URL=postgresql://postgres:postgres@db:5432/loja_informatica
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/loja_informatica
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_DB=loja_informatica
@@ -45,8 +45,8 @@ docker-compose up -d
 
 **5. Aguardar 10 segundos e executar migrations:**
 ```powershell
-docker-compose exec db psql -U postgres -d loja_informatica -f /dev/stdin < backend/migrations/001_criar_tabelas_os_completo.sql
-docker-compose exec db psql -U postgres -d loja_informatica -f /dev/stdin < backend/migrations/002_adicionar_campos_essenciais_os.sql
+docker-compose exec -T postgres psql -U postgres -d loja_informatica -f /dev/stdin < backend/migrations/001_criar_tabelas_os_completo.sql
+docker-compose exec -T postgres psql -U postgres -d loja_informatica -f /dev/stdin < backend/migrations/002_adicionar_campos_essenciais_os.sql
 ```
 
 ---
@@ -132,17 +132,17 @@ docker-compose down
 **Solução:** 
 ```bash
 # Aguarde 20 segundos após iniciar (banco está sendo criado)
-docker-compose logs db
+docker-compose logs postgres
 ```
 
 ### Problema: Migrations falhando
 **Solução:**
 ```bash
 # Verificar se banco está pronto
-docker-compose exec db pg_isready -U postgres
+docker-compose exec -T postgres pg_isready -U postgres
 
 # Ver logs do banco
-docker-compose logs db
+docker-compose logs postgres
 ```
 
 ---

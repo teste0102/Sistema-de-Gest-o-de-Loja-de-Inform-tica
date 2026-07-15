@@ -39,7 +39,7 @@ if [ ! -f ".env" ]; then
     echo "Criando arquivo .env padrão..."
     cat > .env << 'EOF'
 # Database
-DATABASE_URL=postgresql://postgres:postgres@db:5432/loja_informatica
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/loja_informatica
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_DB=loja_informatica
@@ -85,7 +85,7 @@ sleep 10
 # Verificar se PostgreSQL está respondendo
 echo "Verificando PostgreSQL..."
 for i in {1..30}; do
-    if docker-compose exec -T db pg_isready -U postgres &> /dev/null; then
+    if docker-compose exec -T postgres pg_isready -U postgres &> /dev/null; then
         echo -e "${GREEN}✅ PostgreSQL respondendo${NC}"
         break
     fi
@@ -104,7 +104,7 @@ MIGRATION_2="backend/migrations/002_adicionar_campos_essenciais_os.sql"
 
 if [ -f "$MIGRATION_1" ]; then
     echo "Executando: $MIGRATION_1"
-    docker-compose exec -T db psql -U postgres -d loja_informatica -f /dev/stdin < "$MIGRATION_1"
+    docker-compose exec -T postgres psql -U postgres -d loja_informatica -f /dev/stdin < "$MIGRATION_1"
     echo -e "${GREEN}✅ Migration 001 concluída${NC}"
 else
     echo -e "${YELLOW}⚠️  Migration 001 não encontrada${NC}"
@@ -112,7 +112,7 @@ fi
 
 if [ -f "$MIGRATION_2" ]; then
     echo "Executando: $MIGRATION_2"
-    docker-compose exec -T db psql -U postgres -d loja_informatica -f /dev/stdin < "$MIGRATION_2"
+    docker-compose exec -T postgres psql -U postgres -d loja_informatica -f /dev/stdin < "$MIGRATION_2"
     echo -e "${GREEN}✅ Migration 002 concluída${NC}"
 else
     echo -e "${YELLOW}⚠️  Migration 002 não encontrada${NC}"
