@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import json
 
-from backend.utils.crypto_service import CryptoService
+from utils.crypto_service import CryptoService
 
 
 @dataclass

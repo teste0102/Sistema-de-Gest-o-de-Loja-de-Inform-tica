@@ -9,8 +9,8 @@ from sqlalchemy import func
 from typing import Optional, Dict
 import re
 
-from backend.models import OrdemServico
-from backend.database import get_db
+from models import OrdemServico
+from database import get_db
 
 
 class NumeroOSService:

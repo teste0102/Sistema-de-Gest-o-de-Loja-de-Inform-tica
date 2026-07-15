@@ -8,8 +8,8 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 import json
 
-from backend.models import OrdemServico
-from backend.utils.crypto_service import CryptoService
+from models import OrdemServico
+from utils.crypto_service import CryptoService
 
 
 class ReplayDigitacaoDTO:

@@ -13,8 +13,8 @@ from PIL import Image
 import io
 
 from sqlalchemy.orm import Session
-from backend.models import OrdemServico, Cliente
-from backend.utils.crypto_service import CryptoService
+from models import OrdemServico, Cliente
+from utils.crypto_service import CryptoService
 
 
 class FotoService:

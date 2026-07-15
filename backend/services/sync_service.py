@@ -12,8 +12,8 @@ from enum import Enum
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
-from backend.models import OrdemServico, Cliente, Lancamento, SyncQueue
-from backend.utils.crypto_service import CryptoService
+from models import OrdemServico, Cliente, Lancamento, SyncQueue
+from utils.crypto_service import CryptoService
 
 logger = logging.getLogger(__name__)
 

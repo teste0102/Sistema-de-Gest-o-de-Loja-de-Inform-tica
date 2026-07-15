@@ -9,8 +9,8 @@ from datetime import datetime
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
-from backend.models import OrdemServico
-from backend.utils.crypto_service import CryptoService
+from models import OrdemServico
+from utils.crypto_service import CryptoService
 
 
 @dataclass
