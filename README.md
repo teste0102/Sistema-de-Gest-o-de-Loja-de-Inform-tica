@@ -34,13 +34,23 @@ git clone https://github.com/teste0102/sistema-de-gest-o-de-loja-de-inform-tica.
 cd sistema-de-gest-o-de-loja-de-inform-tica
 ```
 
-### 2. Execute o Script de Setup
+### 2. Escolha UMA opção:
+
+#### Opção A: Mais Fácil (Windows) 🏃
+Faça double-click em um desses arquivos:
+- **`iniciar.bat`** - Faz TUDO automaticamente (recomendado na primeira vez!)
+- **`abrir-terminal.bat`** - Abre terminal na pasta certa
+
+#### Opção B: Comando Manual
 ```bash
 # Linux/macOS
 bash setup.sh
 
 # Windows (PowerShell ou CMD)
-setup.bat
+.\setup.bat
+
+# Qualquer SO com Python
+python3 setup.py
 ```
 
 ### 3. Inicie os Serviços
