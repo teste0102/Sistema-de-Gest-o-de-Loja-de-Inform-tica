@@ -50,14 +50,28 @@ class OrdemServico(Base):
     node_os_id = Column(String(50))  # ID da OS no Node.js
     node_senha_id = Column(String(50))  # ID da senha no Node.js
 
+    # Dispositivo - FUNDAMENTAL
+    marca = Column(String(60), index=True)  # Samsung, Apple, Xiaomi, Motorola, ASUS, etc.
+    modelo = Column(String(120), index=True)  # Galaxy S10, iPhone 12, etc.
+    imei = Column(String(20), unique=True, nullable=True, index=True)  # IMEI do dispositivo
+
     # Senhas
     senha_tipo = Column(String(20))  # pin, padrao, biometria, nenhuma
     senha_imagem = Column(LargeBinary)  # imagem do padrão
     senha_cifrada = Column(String(255))  # senha criptografada
 
+    # Replay de digitação (sequência de toques)
+    replay_dados = Column(Text)  # JSON com sequência de toques {sequencia, duracao_ms, dispositivo, data_criacao}
+
     # Mídias
     fotos = Column(JSON)  # [{id, url, data, descricao}, ...]
     videos = Column(JSON)  # [{id, url, duracao, data}, ...]
+
+    # Laudo Técnico (relatório final)
+    laudo_assinatura_digital = Column(Text)  # Assinatura RSA-2048 do técnico
+    laudo_danos = Column(JSON)  # [{tipo, descricao, foto_ids}, ...]
+    laudo_data_criacao = Column(DateTime)  # Quando o laudo foi criado
+    laudo_assinado_cliente = Column(Boolean, default=False)  # Assinatura do cliente com caneta USB
 
     # Rastreamento de sincronização
     sincronizado_com_servidores = Column(JSON, default={})  # {servidor_id: timestamp}

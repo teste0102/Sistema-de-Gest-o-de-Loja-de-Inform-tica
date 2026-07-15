@@ -1,21 +1,175 @@
 """
-services/sync_service.py - Serviço de sincronização híbrida
-
-Coordena sincronização de dados entre:
-- Servidor Local (FastAPI + PostgreSQL)
-- Servidores Remotos (PostgreSQL, Access, MySQL)
-- Node.js (Atendimento) - Fotos, Vídeos, Senhas
+Serviço de Sincronização Multi-Servidor
+Push/Pull de dados com resolução de conflitos e fallback offline
 """
 
 import logging
 import json
-from datetime import datetime
-from typing import List, Dict, Optional
+import hashlib
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional, Tuple
+from enum import Enum
 from sqlalchemy.orm import Session
-from models import OrdemServico, Cliente, Lancamento, SyncQueue, SyncHistory
-import requests
+from sqlalchemy import and_
+
+from backend.models import OrdemServico, Cliente, Lancamento, SyncQueue
+from backend.utils.crypto_service import CryptoService
 
 logger = logging.getLogger(__name__)
+
+
+class EstadoSync(Enum):
+    """Estados possíveis de um item na fila de sync"""
+    PENDENTE = "pendente"
+    SINCRONIZANDO = "sincronizando"
+    SINCRONIZADO = "sincronizado"
+    ERRO = "erro"
+    CONFLITO = "conflito"
+
+
+class EstrategiaResolucao(Enum):
+    """Estratégias para resolver conflitos"""
+    LOCAL_VENCE = "local_vence"
+    REMOTO_VENCE = "remoto_vence"
+    MERGE_TIMESTAMPS = "merge_timestamps"
+    MANUAL = "manual"
+
+
+class SyncService:
+    """Serviço para sincronização offline-first"""
+
+    def __init__(self, crypto_service: CryptoService, db: Session = None):
+        self.crypto = crypto_service
+        self.db = db
+        self.timeout_segundos = 300
+
+    def enfileirar_operacao(
+        self,
+        db: Session,
+        tabela: str,
+        operacao: str,
+        registro_id: int,
+        dados: Dict
+    ) -> Dict:
+        """Enfileira operação para sincronização (offline-first)"""
+        if operacao not in ["insert", "update", "delete"]:
+            raise ValueError(f"Operação inválida: {operacao}")
+
+        sync_item = SyncQueue(
+            tabela=tabela,
+            operacao=operacao,
+            registro_id=registro_id,
+            dados=dados,
+            timestamp=datetime.utcnow(),
+            sincronizado=False
+        )
+
+        db.add(sync_item)
+        db.commit()
+        db.refresh(sync_item)
+
+        return {
+            "ok": True,
+            "sync_id": sync_item.id,
+            "status": "pendente",
+            "mensagem": "Operação enfileirada para sincronização offline"
+        }
+
+    def obter_fila_sync(
+        self,
+        db: Session,
+        sincronizado: Optional[bool] = False,
+        limite: int = 100
+    ) -> List[Dict]:
+        """Obtém itens da fila de sincronização"""
+        query = db.query(SyncQueue)
+
+        if sincronizado is not None:
+            query = query.filter(SyncQueue.sincronizado == sincronizado)
+
+        query = query.order_by(SyncQueue.timestamp.asc()).limit(limite)
+
+        return [
+            {
+                "id": item.id,
+                "tabela": item.tabela,
+                "operacao": item.operacao,
+                "timestamp": item.timestamp.isoformat(),
+                "sincronizado": item.sincronizado,
+                "erro": item.erro
+            }
+            for item in query.all()
+        ]
+
+    def obter_status_sync(self, db: Session) -> Dict:
+        """Obtém status geral de sincronização"""
+        total_fila = db.query(SyncQueue).count()
+        sincronizados = db.query(SyncQueue).filter(SyncQueue.sincronizado == True).count()
+        com_erro = db.query(SyncQueue).filter(SyncQueue.erro != None).count()
+        pendentes = total_fila - sincronizados - com_erro
+
+        limite_tempo = datetime.utcnow() - timedelta(minutes=30)
+        antigos = db.query(SyncQueue).filter(
+            and_(
+                SyncQueue.sincronizado == False,
+                SyncQueue.timestamp < limite_tempo
+            )
+        ).count()
+
+        return {
+            "total_fila": total_fila,
+            "sincronizados": sincronizados,
+            "pendentes": pendentes,
+            "com_erro": com_erro,
+            "itens_antigos_30min": antigos,
+            "percentual_completo": round((sincronizados / total_fila * 100) if total_fila > 0 else 0, 2),
+            "status": "verde" if pendentes == 0 else "amarelo" if antigos == 0 else "vermelho"
+        }
+
+    def detectar_conflito(
+        self,
+        dados_local: Dict,
+        dados_remoto: Dict
+    ) -> Tuple[bool, Optional[str]]:
+        """Detecta conflito entre versões local e remota"""
+        ts_local = dados_local.get("updated_at")
+        ts_remoto = dados_remoto.get("updated_at")
+
+        if ts_local == ts_remoto:
+            return False, None
+
+        if dados_local != dados_remoto:
+            return True, "conflito_conteudo"
+
+        return False, None
+
+    def resolver_conflito(
+        self,
+        dados_local: Dict,
+        dados_remoto: Dict,
+        estrategia: EstrategiaResolucao = EstrategiaResolucao.MERGE_TIMESTAMPS
+    ) -> Dict:
+        """Resolve conflito entre versões"""
+        if estrategia == EstrategiaResolucao.LOCAL_VENCE:
+            return dados_local
+        elif estrategia == EstrategiaResolucao.REMOTO_VENCE:
+            return dados_remoto
+        elif estrategia == EstrategiaResolucao.MERGE_TIMESTAMPS:
+            ts_local = dados_local.get("updated_at", "")
+            ts_remoto = dados_remoto.get("updated_at", "")
+            return dados_local if ts_local > ts_remoto else dados_remoto
+        else:
+            return {
+                "conflito": True,
+                "local": dados_local,
+                "remoto": dados_remoto,
+                "requer_intervencao": True
+            }
+
+    def gerar_hash_dados(self, dados: Dict) -> str:
+        """Gera hash dos dados para detecção de mudanças"""
+        json_str = json.dumps(dados, sort_keys=True, ensure_ascii=False)
+        return hashlib.sha256(json_str.encode()).hexdigest()
 
 
 class SincronizadorHibrido:
@@ -25,6 +179,7 @@ class SincronizadorHibrido:
         self.db = db
         self.servidor_fastapi = servidor_fastapi_url
         self.servidor_node = "http://localhost:3000"
+        self.sync_svc = SyncService(CryptoService(), db)
 
     # ===== SINCRONIZAÇÃO COM SERVIDOR REMOTO =====
 
