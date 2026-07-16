@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Container, Card, Button, Row, Col, Form, Tabs, Tab, Alert, Table, Badge, Spinner } from 'react-bootstrap';
 import api from '../services/api';
+import PatternDraw from '../components/PatternDraw';
 
 export default function OSPage() {
   // Estado geral
@@ -25,6 +26,11 @@ export default function OSPage() {
   // Laudo
   const [laudo, setLaudo] = useState(null);
   const [obsLaudo, setObsLaudo] = useState('');
+
+  // Padrão (Desenho de Senha)
+  const [mostrarPattern, setMostrarPattern] = useState(false);
+  const [patternData, setPatternData] = useState(null);
+  const [patternReplay, setPatternReplay] = useState(null);
 
   const flash = (variant, texto) => {
     setMsg({ variant, texto });
@@ -107,6 +113,56 @@ export default function OSPage() {
       carregarSenha();
     } catch (e) {
       flash('danger', `Erro ao remover senha: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  // ===== PADRÃO (PATTERN DRAW) =====
+  const handlePatternComplete = async (pattern) => {
+    if (!ordemId) {
+      flash('warning', 'Carregue uma OS primeiro');
+      return;
+    }
+
+    try {
+      setPatternData(pattern);
+
+      // Salvar replay no backend
+      const device = {
+        tipo: 'browser',
+        navegador: navigator.userAgent,
+        resolucao: `${window.innerWidth}x${window.innerHeight}`,
+      };
+
+      const res = await api.post(`/api/os/${ordemId}/senhas/pattern`, {
+        pattern: pattern.pattern,
+        sequence: pattern.sequence,
+        duracao_ms: pattern.duration,
+        dispositivo: device,
+        timestamp: pattern.timestamp,
+      });
+
+      flash('success', `Padrão salvo com sucesso! (${pattern.dotCount} pontos conectados)`);
+      setMostrarPattern(false);
+
+      // Carregar senha atualizada
+      setTimeout(() => carregarSenha(), 500);
+    } catch (e) {
+      flash('danger', `Erro ao salvar padrão: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  const visualizarReplay = async () => {
+    if (!ordemId || !senhaInfo?.tem_replay) {
+      flash('warning', 'Nenhum replay disponível');
+      return;
+    }
+
+    try {
+      const res = await api.get(`/api/os/${ordemId}/senhas/replay`);
+      setPatternReplay(res.sequence || []);
+      setMostrarPattern(true);
+    } catch (e) {
+      flash('danger', `Erro ao carregar replay: ${e.response?.data?.detail || e.message}`);
     }
   };
 
@@ -270,7 +326,7 @@ export default function OSPage() {
                     <Form.Label>Tipo de Senha</Form.Label>
                     <Form.Select value={senhaTipo} onChange={(e) => setSenhaTipo(e.target.value)}>
                       <option value="pin">PIN (4-6 dígitos)</option>
-                      <option value="padrao">Padrão</option>
+                      <option value="padrao">Padrão (Desenho)</option>
                       <option value="nenhuma">Nenhuma</option>
                     </Form.Select>
                   </Form.Group>
@@ -285,7 +341,16 @@ export default function OSPage() {
                       />
                     </Form.Group>
                   )}
-                  <Button variant="primary" onClick={criarSenha} className="me-2">
+                  {senhaTipo === 'padrao' && (
+                    <Button
+                      variant="primary"
+                      onClick={() => setMostrarPattern(true)}
+                      className="mb-3 w-100"
+                    >
+                      {patternData ? '✏️ Redefinir Padrão' : '🎨 Desenhar Padrão'}
+                    </Button>
+                  )}
+                  <Button variant="primary" onClick={criarSenha} className="me-2" disabled={senhaTipo === 'padrao' && !patternData}>
                     💾 Salvar Senha
                   </Button>
                   {senhaTipo === 'pin' && (
@@ -304,7 +369,17 @@ export default function OSPage() {
                       {senhaInfo?.tem_senha ? (
                         <>
                           <p className="mb-1">Tipo: <Badge bg="info">{senhaInfo.tipo}</Badge></p>
-                          <p className="mb-0 text-muted small">{senhaInfo.mensagem_seguranca}</p>
+                          <p className="mb-1 text-muted small">{senhaInfo.mensagem_seguranca}</p>
+                          {senhaInfo.tem_replay && (
+                            <Button
+                              size="sm"
+                              variant="outline-info"
+                              onClick={visualizarReplay}
+                              className="mt-2"
+                            >
+                              ▶️ Ver Replay do Padrão
+                            </Button>
+                          )}
                         </>
                       ) : (
                         <p className="text-muted mb-0">Nenhuma senha cadastrada</p>
@@ -313,6 +388,37 @@ export default function OSPage() {
                   </Card>
                 </Col>
               </Row>
+
+              {mostrarPattern && (
+                <Row className="mt-4">
+                  <Col>
+                    <Card>
+                      <Card.Header>
+                        {patternReplay ? '▶️ Reprodução de Padrão' : '🎨 Desenhe um Padrão'}
+                      </Card.Header>
+                      <Card.Body>
+                        <PatternDraw
+                          onPatternComplete={handlePatternComplete}
+                          onReplay={!!patternReplay}
+                          replayData={patternReplay}
+                        />
+                        {!patternReplay && (
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              setMostrarPattern(false);
+                              setPatternReplay(null);
+                            }}
+                            className="mt-3 w-100"
+                          >
+                            Cancelar
+                          </Button>
+                        )}
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </Row>
+              )}
             </Tab>
 
             {/* FOTOS */}

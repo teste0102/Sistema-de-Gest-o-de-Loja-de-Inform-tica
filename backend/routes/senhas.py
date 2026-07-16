@@ -12,7 +12,9 @@ from database import get_db
 from models import OrdemServico
 from services.numero_os_service import NumeroOSService
 from services.senha_service import SenhaService
+from services.replay_service import ReplayService
 from utils.crypto_service import CryptoService
+import json
 
 
 router = APIRouter(
@@ -46,6 +48,15 @@ class AvaliarSenhaRequest(BaseModel):
     tipo: str
     valor: Optional[str] = None
     coordenadas: Optional[List[tuple]] = None
+
+
+class PatternRequest(BaseModel):
+    """Schema para salvar padrão com replay"""
+    pattern: str  # "1-2-3-4-5" (conectados)
+    sequence: List[Dict]  # [{x, y, t, tipo}, ...]
+    duracao_ms: int
+    dispositivo: Dict
+    timestamp: str
 
 
 # ============================================================================
@@ -290,12 +301,16 @@ def obter_senha(
                 "mensagem": "Nenhuma senha criada para esta OS"
             }
 
+        # Verificar se tem replay associado
+        tem_replay = ordem.replay_dados is not None
+
         return {
             "ok": True,
             "tem_senha": True,
             "senha_id": ordem.node_senha_id,
             "tipo": ordem.senha_tipo,
             "data_criada": ordem.updated_at.isoformat() if ordem.updated_at else None,
+            "tem_replay": tem_replay,
             "mensagem_seguranca": "Senha criptografada no servidor. Valor não pode ser recuperado."
         }
 
@@ -369,6 +384,162 @@ def deletar_senha(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Erro ao deletar senha: {str(e)}"
+        )
+
+
+# ============================================================================
+# PATTERN DRAWING (COM REPLAY)
+# ============================================================================
+
+@router.post("/{ordem_id}/senhas/pattern", response_model=Dict)
+def salvar_pattern_senha(
+    ordem_id: int,
+    request: PatternRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Salva padrão de senha com replay de digitação
+
+    Args:
+        ordem_id: ID da ordem
+        request: Dados do padrão e replay
+        db: Sessão de banco de dados
+
+    Returns:
+        Dict com confirmação e replay ID
+
+    Raises:
+        404: Se OS não encontrada
+        400: Se dados inválidos
+    """
+    try:
+        # Verificar se OS existe
+        ordem = NumeroOSService.obter_os_por_id(db, ordem_id)
+        if not ordem:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"OS com ID {ordem_id} não encontrada"
+            )
+
+        # Validar sequência
+        valido, msg = ReplayService.validar_replay(request.sequence)
+        if not valido:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Sequência inválida: {msg}"
+            )
+
+        # Inicializar serviços
+        crypto = CryptoService()
+        senha_svc = SenhaService(crypto)
+
+        # Validar padrão (pelo menos 4 pontos)
+        pattern_dots = request.pattern.split('-')
+        if len(pattern_dots) < 4:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Padrão deve conectar pelo menos 4 pontos"
+            )
+
+        # Criptografar padrão
+        padrao_cripto = senha_svc.criptografar_padrao(
+            [(int(dot), int(dot)) for dot in pattern_dots]
+        )
+
+        # Registrar replay
+        replay_result = ReplayService.registrar_replay(
+            db,
+            ordem_id,
+            request.sequence,
+            request.duracao_ms,
+            request.dispositivo
+        )
+
+        # Gerar ID da senha
+        senha_id = senha_svc.gerar_id_senha()
+
+        # Salvar padrão na ordem
+        ordem.node_senha_id = senha_id
+        ordem.senha_tipo = "padrao"
+        ordem.senha_cifrada = padrao_cripto
+        # Armazenar também as informações do padrão para referência
+        ordem.senha_imagem = json.dumps({
+            "pattern": request.pattern,
+            "dots_count": len(pattern_dots),
+            "duration_ms": request.duracao_ms,
+            "timestamp": request.timestamp
+        })
+
+        db.add(ordem)
+        db.commit()
+        db.refresh(ordem)
+
+        return {
+            "ok": True,
+            "senha_id": senha_id,
+            "tipo": "padrao",
+            "ordem_id": ordem_id,
+            "pattern": request.pattern,
+            "dots_count": len(pattern_dots),
+            "duracao_ms": request.duracao_ms,
+            "replay_id": replay_result.get("ordem_id"),
+            "data_criada": datetime.now().isoformat(),
+            "mensagem": f"Padrão salvo com sucesso (replay registrado)"
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Erro ao salvar padrão: {str(e)}"
+        )
+
+
+@router.get("/{ordem_id}/senhas/replay", response_model=Dict)
+def obter_replay_padrao(
+    ordem_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtém replay do padrão de senha para visualização
+
+    Args:
+        ordem_id: ID da ordem
+        db: Sessão de banco de dados
+
+    Returns:
+        Dict com sequência de toque para reprodução
+
+    Raises:
+        404: Se OS ou replay não encontrado
+    """
+    try:
+        # Obter replay
+        replay = ReplayService.obter_replay(db, ordem_id)
+        if not replay:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Nenhum replay disponível para esta OS"
+            )
+
+        return {
+            "ok": True,
+            "ordem_id": ordem_id,
+            "sequence": replay.get("sequencia", []),
+            "duracao_ms": replay.get("duracao_ms", 0),
+            "num_eventos": replay.get("num_eventos", 0),
+            "timestamp": replay.get("data_criacao")
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Erro ao obter replay: {str(e)}"
         )
 
 
