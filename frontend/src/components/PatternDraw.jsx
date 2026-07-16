@@ -9,7 +9,7 @@ const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null })
   const [startTime, setStartTime] = useState(null);
   const [isReplaying, setIsReplaying] = useState(false);
   const [gridSize, setGridSize] = useState(3);
-  const [dotRadius, setDotRadius] = useState(20);
+  const [dotRadius, setDotRadius] = useState(16);
   const [dots, setDots] = useState([]);
 
   const GRID_SIZE = gridSize;
@@ -47,15 +47,20 @@ const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null })
   }, [onReplay, replayData]);
 
   const generateDots = (width, height) => {
-    const dotSpacing = width / (GRID_SIZE + 1);
+    // Usar a menor dimensão para formar um quadrado centralizado (3x3 como Android)
+    const size = Math.min(width, height);
+    const spacing = size / (GRID_SIZE + 1);
+    // Deslocamento para centralizar a grade dentro do canvas
+    const offsetX = (width - size) / 2;
+    const offsetY = (height - size) / 2;
     const newDots = [];
 
     for (let row = 0; row < GRID_SIZE; row++) {
       for (let col = 0; col < GRID_SIZE; col++) {
         newDots.push({
           id: row * GRID_SIZE + col + 1,
-          x: (col + 1) * dotSpacing,
-          y: (row + 1) * dotSpacing,
+          x: offsetX + (col + 1) * spacing,
+          y: offsetY + (row + 1) * spacing,
           row,
           col,
         });
