@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import './PatternDraw.css';
 
-const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null }) => {
+const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null, replaySignal = 0 }) => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [connectedDots, setConnectedDots] = useState([]);
@@ -45,6 +45,21 @@ const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null })
       replayPattern(replayData);
     }
   }, [onReplay, replayData]);
+
+  // Replay no MESMO canvas quando o botão é apertado (replaySignal muda).
+  // Usa replayData (senha salva) ou o padrão recém desenhado.
+  useEffect(() => {
+    if (!replaySignal) return;
+    if (isReplaying) return;
+    let data = replayData;
+    if (!data && connectedDots.length > 0) {
+      data = { pattern: connectedDots.join('-'), sequence };
+    }
+    if (data && data.pattern) {
+      replayPattern(data);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replaySignal]);
 
   const generateDots = (width, height) => {
     // Usar a menor dimensão para formar um quadrado centralizado (3x3 como Android)

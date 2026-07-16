@@ -1,8 +1,8 @@
 .pattern-draw-container {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  padding: 20px;
+  gap: 8px;
+  padding: 10px;
   background: #f9f9f9;
   border-radius: 8px;
   border: 1px solid #ddd;
@@ -10,7 +10,7 @@
 
 .pattern-header {
   text-align: center;
-  padding-bottom: 10px;
+  padding-bottom: 6px;
   border-bottom: 2px solid #e0e0e0;
 }
 
@@ -28,7 +28,7 @@
 
 .pattern-canvas {
   width: 100%;
-  max-width: 300px;
+  max-width: 240px;
   aspect-ratio: 1 / 1;
   height: auto;
   margin: 0 auto;
