@@ -117,32 +117,41 @@ export default function OSPage() {
   };
 
   // ===== PADRÃO (PATTERN DRAW) =====
-  const handlePatternComplete = async (pattern) => {
+  // Apenas captura o padrão desenhado (NÃO salva ainda — usuário clica em "Salvar Padrão")
+  const handlePatternComplete = (pattern) => {
+    setPatternData(pattern);
+    flash('info', `Padrão desenhado (${pattern.dotCount} pontos). Clique em "Salvar Padrão" para gravar.`);
+  };
+
+  // Salva o padrão capturado no backend
+  const salvarPadrao = async () => {
     if (!ordemId) {
       flash('warning', 'Carregue uma OS primeiro');
       return;
     }
+    if (!patternData) {
+      flash('warning', 'Desenhe um padrão primeiro');
+      return;
+    }
 
     try {
-      setPatternData(pattern);
-
-      // Salvar replay no backend
       const device = {
         tipo: 'browser',
         navegador: navigator.userAgent,
         resolucao: `${window.innerWidth}x${window.innerHeight}`,
       };
 
-      const res = await api.post(`/api/os/${ordemId}/senhas/pattern`, {
-        pattern: pattern.pattern,
-        sequence: pattern.sequence,
-        duracao_ms: pattern.duration,
+      await api.post(`/api/os/${ordemId}/senhas/pattern`, {
+        pattern: patternData.pattern,
+        sequence: patternData.sequence,
+        duracao_ms: patternData.duration,
         dispositivo: device,
-        timestamp: pattern.timestamp,
+        timestamp: patternData.timestamp,
       });
 
-      flash('success', `Padrão salvo com sucesso! (${pattern.dotCount} pontos conectados)`);
+      flash('success', `Padrão salvo com sucesso! (${patternData.dotCount} pontos conectados)`);
       setMostrarPattern(false);
+      setPatternData(null);
 
       // Carregar senha atualizada
       setTimeout(() => carregarSenha(), 500);
@@ -151,6 +160,16 @@ export default function OSPage() {
     }
   };
 
+  // Replay do padrão que ACABOU de ser desenhado (antes de salvar)
+  const verReplayLocal = () => {
+    if (!patternData) {
+      flash('warning', 'Desenhe um padrão primeiro');
+      return;
+    }
+    setPatternReplay({ pattern: patternData.pattern, sequence: patternData.sequence });
+  };
+
+  // Replay do padrão JÁ SALVO no backend (para conferir depois)
   const visualizarReplay = async () => {
     if (!ordemId || !senhaInfo?.tem_replay) {
       flash('warning', 'Nenhum replay disponível');
@@ -159,7 +178,7 @@ export default function OSPage() {
 
     try {
       const res = await api.get(`/api/os/${ordemId}/senhas/replay`);
-      setPatternReplay(res.sequence || []);
+      setPatternReplay({ pattern: res.pattern || '', sequence: res.sequence || [] });
       setMostrarPattern(true);
     } catch (e) {
       flash('danger', `Erro ao carregar replay: ${e.response?.data?.detail || e.message}`);
@@ -394,25 +413,66 @@ export default function OSPage() {
                   <Col>
                     <Card>
                       <Card.Header>
-                        {patternReplay ? '▶️ Reprodução de Padrão' : '🎨 Desenhe um Padrão'}
+                        {patternReplay ? '▶️ Reprodução do Padrão' : '🎨 Desenhe o Padrão'}
                       </Card.Header>
                       <Card.Body>
                         <PatternDraw
+                          key={patternReplay ? 'replay' : 'draw'}
                           onPatternComplete={handlePatternComplete}
                           onReplay={!!patternReplay}
                           replayData={patternReplay}
                         />
-                        {!patternReplay && (
+
+                        {/* Modo REPLAY: só botão de voltar */}
+                        {patternReplay && (
                           <Button
                             variant="secondary"
-                            onClick={() => {
-                              setMostrarPattern(false);
-                              setPatternReplay(null);
-                            }}
+                            onClick={() => setPatternReplay(null)}
                             className="mt-3 w-100"
                           >
-                            Cancelar
+                            ◀️ Voltar
                           </Button>
+                        )}
+
+                        {/* Modo DESENHO: botões Salvar / Replay / Cancelar */}
+                        {!patternReplay && (
+                          <>
+                            {patternData && (
+                              <Alert variant="success" className="mt-3 mb-3">
+                                ✅ Padrão desenhado: <strong>{patternData.pattern}</strong>{' '}
+                                ({patternData.dotCount} pontos)
+                              </Alert>
+                            )}
+                            <div className="d-flex gap-2 mt-3">
+                              <Button
+                                variant="success"
+                                onClick={salvarPadrao}
+                                disabled={!patternData}
+                                className="flex-fill"
+                              >
+                                💾 Salvar Padrão
+                              </Button>
+                              <Button
+                                variant="outline-info"
+                                onClick={verReplayLocal}
+                                disabled={!patternData}
+                                className="flex-fill"
+                              >
+                                ▶️ Ver Replay
+                              </Button>
+                              <Button
+                                variant="outline-secondary"
+                                onClick={() => {
+                                  setMostrarPattern(false);
+                                  setPatternReplay(null);
+                                  setPatternData(null);
+                                }}
+                                className="flex-fill"
+                              >
+                                ✖️ Cancelar
+                              </Button>
+                            </div>
+                          </>
                         )}
                       </Card.Body>
                     </Card>

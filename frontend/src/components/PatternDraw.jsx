@@ -74,8 +74,8 @@ const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null })
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw connections
-    ctx.strokeStyle = '#4CAF50';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
     ctx.beginPath();
 
     connected.forEach((dotId, index) => {
@@ -95,13 +95,13 @@ const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null })
       const isConnected = connected.includes(dot.id);
 
       // Dot background
-      ctx.fillStyle = isConnected ? '#4CAF50' : '#E0E0E0';
+      ctx.fillStyle = isConnected ? '#000000' : '#E0E0E0';
       ctx.beginPath();
       ctx.arc(dot.x, dot.y, DOT_RADIUS, 0, 2 * Math.PI);
       ctx.fill();
 
       // Dot border
-      ctx.strokeStyle = isConnected ? '#388E3C' : '#999';
+      ctx.strokeStyle = isConnected ? '#000000' : '#999';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(dot.x, dot.y, DOT_RADIUS, 0, 2 * Math.PI);
@@ -153,8 +153,8 @@ const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null })
     // Draw temporary line
     drawPattern(canvasRef.current, dots, connectedDots);
     const ctx = canvas.getContext('2d');
-    ctx.strokeStyle = '#4CAF50';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
     ctx.beginPath();
     const lastDot = dots.find(d => d.id === connectedDots[connectedDots.length - 1]);
     if (lastDot) {
@@ -217,19 +217,15 @@ const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null })
   };
 
   const replayPattern = async (data) => {
+    if (!data || !data.pattern) return;
     setIsReplaying(true);
-    const canvas = canvasRef.current;
     setConnectedDots([]);
 
-    for (let i = 0; i < data.sequence.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      if (i === 0) {
-        setConnectedDots([data.pattern.split('-')[0]]);
-      } else {
-        const patternArray = data.pattern.split('-').map(Number);
-        setConnectedDots(patternArray.slice(0, i + 1));
-      }
+    const patternArray = data.pattern.split('-').map(Number);
+    for (let i = 0; i < patternArray.length; i++) {
+      // Aguarda antes de conectar cada ponto (animação da reprodução)
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      setConnectedDots(patternArray.slice(0, i + 1));
     }
 
     setIsReplaying(false);

@@ -525,9 +525,20 @@ def obter_replay_padrao(
                 detail="Nenhum replay disponível para esta OS"
             )
 
+        # Obter o pattern armazenado (sequência de pontos, ex: "1-2-3-5")
+        pattern_str = ""
+        ordem = NumeroOSService.obter_os_por_id(db, ordem_id)
+        if ordem and ordem.senha_imagem:
+            try:
+                info = json.loads(ordem.senha_imagem)
+                pattern_str = info.get("pattern", "")
+            except Exception:
+                pattern_str = ""
+
         return {
             "ok": True,
             "ordem_id": ordem_id,
+            "pattern": pattern_str,
             "sequence": replay.get("sequencia", []),
             "duracao_ms": replay.get("duracao_ms", 0),
             "num_eventos": replay.get("num_eventos", 0),
