@@ -10,7 +10,8 @@ from datetime import datetime
 from database import get_db
 from models import OrdemServico, Cliente
 from services.numero_os_service import NumeroOSService
-from schemas import OrdemServicioResponse
+from schemas import OrdemServicioResponse, OrdemWizardUpdate
+from pydantic import BaseModel
 
 
 router = APIRouter(
@@ -258,7 +259,26 @@ def obter_os_por_id(
             "updated_at": ordem.updated_at,
             "total_fotos": total_fotos,
             "tem_laudo": ordem.laudo_assinatura_digital is not None,
-            "tem_replay": ordem.replay_dados is not None
+            "tem_replay": ordem.replay_dados is not None,
+            # Produto
+            "produto_tipo": ordem.produto_tipo,
+            "produto_descricao": ordem.produto_descricao,
+            "marca": ordem.marca,
+            "modelo": ordem.modelo,
+            "imei": ordem.imei,
+            # Endereço / Contato
+            "endereco_rua": ordem.endereco_rua,
+            "endereco_tipo": ordem.endereco_tipo,
+            "endereco_complemento": ordem.endereco_complemento,
+            "endereco_numero": ordem.endereco_numero,
+            "bairro": ordem.bairro,
+            "cidade_os": ordem.cidade_os,
+            "telefone_contato": ordem.telefone_contato,
+            # Problema
+            "problema_descricao": ordem.problema_descricao,
+            # Assinatura
+            "tem_assinatura": ordem.assinatura_cliente is not None,
+            "assinatura_cliente": ordem.assinatura_cliente,
         }
 
     except HTTPException:
@@ -305,6 +325,131 @@ def validar_numero(numero_os: str):
             "numero_os": numero_os,
             "mensagem": "Formato inválido (esperado: OS-YYYYMMDD-XXXXX)"
         }
+
+
+# ============================================================================
+# ALTERAR OS (assistente / função Alterar) - atualiza qualquer campo
+# ============================================================================
+
+@router.put("/{ordem_id}/completo", response_model=Dict)
+def alterar_os_completo(
+    ordem_id: int,
+    dados: OrdemWizardUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Altera qualquer campo da OS após o cadastro (função Alterar).
+
+    Args:
+        ordem_id: ID da ordem
+        dados: Campos a atualizar (apenas os enviados são alterados)
+        db: Sessão de banco de dados
+
+    Returns:
+        Dict com dados atualizados
+
+    Raises:
+        404: Se OS não encontrada
+    """
+    try:
+        ordem = db.query(OrdemServico).filter(OrdemServico.id == ordem_id).first()
+        if not ordem:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"OS com ID {ordem_id} não encontrada"
+            )
+
+        # Atualizar apenas os campos enviados
+        campos = dados.dict(exclude_unset=True)
+        for chave, valor in campos.items():
+            setattr(ordem, chave, valor)
+
+        db.add(ordem)
+        db.commit()
+        db.refresh(ordem)
+
+        return {
+            "ok": True,
+            "ordem_id": ordem.id,
+            "numero_os": ordem.numero_os,
+            "status": ordem.status,
+            "mensagem": "OS alterada com sucesso",
+            "campos_atualizados": list(campos.keys())
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Erro ao alterar OS: {str(e)}"
+        )
+
+
+# ============================================================================
+# ASSINATURA DIGITAL DO CLIENTE (caneta USB / canvas)
+# ============================================================================
+
+class AssinaturaRequest(BaseModel):
+    assinatura: str  # imagem base64 (data:image/png;base64,...)
+
+
+@router.post("/{ordem_id}/assinatura", response_model=Dict)
+def salvar_assinatura(
+    ordem_id: int,
+    request: AssinaturaRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Salva a assinatura digital do cliente (imagem base64).
+
+    Args:
+        ordem_id: ID da ordem
+        request: Assinatura em base64
+        db: Sessão de banco de dados
+
+    Returns:
+        Dict com confirmação
+
+    Raises:
+        404: Se OS não encontrada
+        400: Se assinatura inválida
+    """
+    try:
+        ordem = db.query(OrdemServico).filter(OrdemServico.id == ordem_id).first()
+        if not ordem:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"OS com ID {ordem_id} não encontrada"
+            )
+
+        if not request.assinatura or len(request.assinatura) < 20:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Assinatura inválida ou vazia"
+            )
+
+        ordem.assinatura_cliente = request.assinatura
+        db.add(ordem)
+        db.commit()
+
+        return {
+            "ok": True,
+            "ordem_id": ordem_id,
+            "mensagem": "Assinatura do cliente salva com sucesso"
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Erro ao salvar assinatura: {str(e)}"
+        )
 
 
 # ============================================================================

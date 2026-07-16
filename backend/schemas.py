@@ -77,6 +77,32 @@ class OrdemServicioUpdate(BaseModel):
     tecnico: Optional[str] = None
     observacoes: Optional[str] = None
 
+
+class OrdemWizardUpdate(BaseModel):
+    """Atualização completa da OS via assistente (função Alterar)."""
+    # Produto
+    produto_tipo: Optional[str] = None       # celular, pc, pc_gamer, outro
+    produto_descricao: Optional[str] = None
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
+    imei: Optional[str] = None
+    # Endereço / Contato
+    endereco_rua: Optional[str] = None
+    endereco_tipo: Optional[str] = None      # casa, ap
+    endereco_complemento: Optional[str] = None
+    endereco_numero: Optional[str] = None
+    bairro: Optional[str] = None
+    cidade_os: Optional[str] = None
+    telefone_contato: Optional[str] = None
+    # Problema
+    problema_descricao: Optional[str] = None
+    # Assinatura (base64 PNG)
+    assinatura_cliente: Optional[str] = None
+    # Gerais
+    status: Optional[str] = None
+    tecnico: Optional[str] = None
+    observacoes: Optional[str] = None
+
 class OrdemServicioResponse(OrdemServicioBase):
     id: int
     valor_total: float

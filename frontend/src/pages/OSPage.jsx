@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Container, Card, Button, Row, Col, Form, Tabs, Tab, Alert, Table, Badge, Spinner } from 'react-bootstrap';
 import api from '../services/api';
 import PatternDraw from '../components/PatternDraw';
+import NovaOSWizard from '../components/NovaOSWizard';
 
 export default function OSPage() {
   // Estado geral
@@ -32,6 +33,10 @@ export default function OSPage() {
   const [patternData, setPatternData] = useState(null);
   const [patternReplay, setPatternReplay] = useState(null);
 
+  // Assistente (Wizard) de cadastro/alteração
+  const [mostrarWizard, setMostrarWizard] = useState(false);
+  const [wizardDados, setWizardDados] = useState(null); // null = novo, objeto = alterar
+
   const flash = (variant, texto) => {
     setMsg({ variant, texto });
     setTimeout(() => setMsg(null), 5000);
@@ -43,9 +48,12 @@ export default function OSPage() {
     try {
       setGerando(true);
       const res = await api.post(`/api/os/gerar-numero?cliente_id=${clienteId}`);
-      flash('success', `OS gerada: ${res.numero_os} (ID: ${res.ordem_id})`);
+      flash('success', `OS gerada: ${res.numero_os}. Preencha o assistente.`);
       setOrdemId(String(res.ordem_id));
       setOrdemAtiva(res);
+      // Abrir o assistente (novo cadastro)
+      setWizardDados(null);
+      setMostrarWizard(true);
     } catch (e) {
       flash('danger', `Erro ao gerar OS: ${e.response?.data?.detail || e.message}`);
     } finally {
@@ -67,6 +75,27 @@ export default function OSPage() {
       flash('danger', `Erro ao carregar OS: ${e.response?.data?.detail || e.message}`);
       setOrdemAtiva(null);
     }
+  };
+
+  // ===== ASSISTENTE (WIZARD) =====
+  // Abrir em modo Alterar: carrega dados atuais e abre o wizard preenchido
+  const abrirAlterar = async () => {
+    if (!ordemId) return flash('warning', 'Carregue uma OS primeiro');
+    try {
+      const res = await api.get(`/api/os/${ordemId}`);
+      setOrdemAtiva(res);
+      setWizardDados(res);
+      setMostrarWizard(true);
+    } catch (e) {
+      flash('danger', `Erro ao abrir alteração: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  // Ao concluir o assistente: fecha e recarrega a OS
+  const aoConcluirWizard = () => {
+    setMostrarWizard(false);
+    setWizardDados(null);
+    carregarOS();
   };
 
   // ===== SENHA =====
@@ -321,20 +350,70 @@ export default function OSPage() {
         </Col>
       </Row>
 
-      {ordemAtiva && (
-        <Card className="mb-4">
-          <Card.Body>
-            <h5>
-              OS Ativa: <Badge bg="info">{ordemAtiva.numero_os}</Badge>{' '}
-              <Badge bg="secondary">ID {ordemAtiva.ordem_id || ordemAtiva.id}</Badge>{' '}
-              <Badge bg="success">{ordemAtiva.status}</Badge>
-            </h5>
-          </Card.Body>
-        </Card>
+      {ordemAtiva && (() => {
+        const fechada = String(ordemAtiva.status || '').toLowerCase().startsWith('fech');
+        return (
+          <Card className="mb-4">
+            <Card.Body>
+              <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 className="mb-0 d-flex align-items-center gap-2">
+                  {/* Bolinha de status: 🔴 aberta / 🔵 fechada */}
+                  <span
+                    title={fechada ? 'OS Fechada' : 'OS Aberta'}
+                    style={{
+                      display: 'inline-block',
+                      width: 16,
+                      height: 16,
+                      borderRadius: '50%',
+                      background: fechada ? '#0d6efd' : '#dc3545',
+                      border: '1px solid rgba(0,0,0,0.2)',
+                    }}
+                  />
+                  OS: <Badge bg="info">{ordemAtiva.numero_os}</Badge>{' '}
+                  <Badge bg="secondary">ID {ordemAtiva.ordem_id || ordemAtiva.id}</Badge>{' '}
+                  <Badge bg={fechada ? 'primary' : 'danger'}>
+                    {fechada ? 'Fechada' : 'Aberta'}
+                  </Badge>
+                </h5>
+                <Button variant="warning" onClick={abrirAlterar}>
+                  ✏️ Alterar
+                </Button>
+              </div>
+
+              {/* Resumo dos dados cadastrados */}
+              {(ordemAtiva.marca || ordemAtiva.produto_tipo || ordemAtiva.endereco_rua) && (
+                <div className="mt-3 small text-muted">
+                  {ordemAtiva.produto_tipo && <span className="me-3">📦 {ordemAtiva.produto_tipo}</span>}
+                  {ordemAtiva.marca && <span className="me-3">🏷️ {ordemAtiva.marca} {ordemAtiva.modelo}</span>}
+                  {ordemAtiva.endereco_rua && (
+                    <span className="me-3">📍 {ordemAtiva.endereco_rua}, {ordemAtiva.endereco_numero} - {ordemAtiva.bairro} {ordemAtiva.cidade_os}</span>
+                  )}
+                  {ordemAtiva.telefone_contato && <span className="me-3">📞 {ordemAtiva.telefone_contato}</span>}
+                  {ordemAtiva.tem_assinatura && <Badge bg="success">✍️ Assinado</Badge>}
+                  {ordemAtiva.problema_descricao && (
+                    <div className="mt-1">🔧 <em>{ordemAtiva.problema_descricao}</em></div>
+                  )}
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+        );
+      })()}
+
+      {/* Assistente (Wizard) de cadastro/alteração */}
+      {mostrarWizard && ordemId && (
+        <NovaOSWizard
+          ordemId={ordemId}
+          numeroOS={ordemAtiva?.numero_os}
+          dadosIniciais={wizardDados}
+          onConcluir={aoConcluirWizard}
+          onCancelar={() => { setMostrarWizard(false); setWizardDados(null); }}
+          flash={flash}
+        />
       )}
 
       {/* Ferramentas por OS */}
-      <Card>
+      <Card className={mostrarWizard ? 'd-none' : ''}>
         <Card.Body>
           <Tabs defaultActiveKey="senha" className="mb-3">
             {/* SENHA */}

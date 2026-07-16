@@ -1,0 +1,364 @@
+import React, { useState } from 'react';
+import { Card, Button, Form, Row, Col, Badge, ProgressBar, Alert } from 'react-bootstrap';
+import api from '../services/api';
+import PatternDraw from './PatternDraw';
+import AssinaturaDigital from './AssinaturaDigital';
+import { MARCAS_CELULAR, MODELOS_POR_MARCA, TIPOS_PRODUTO } from '../data/marcasModelos';
+
+// Assistente de cadastro/alteração de OS em janelas sequenciais.
+// Props:
+//   ordemId       - ID da OS (obrigatório, já criada)
+//   numeroOS      - número para exibição
+//   dadosIniciais - objeto do GET da OS (modo Alterar) ou null (nova)
+//   onConcluir()  - callback ao finalizar
+//   onCancelar()  - callback ao cancelar
+//   flash(v, msg) - função para mensagens do pai
+const PASSOS = ['Endereço', 'Produto', 'Senha', 'Problema', 'Assinatura'];
+
+export default function NovaOSWizard({ ordemId, numeroOS, dadosIniciais = null, onConcluir, onCancelar, flash }) {
+  const [passo, setPasso] = useState(1);
+  const [salvando, setSalvando] = useState(false);
+  const d = dadosIniciais || {};
+
+  // ---- Janela 1: Endereço / Contato
+  const [enderecoRua, setEnderecoRua] = useState(d.endereco_rua || '');
+  const [enderecoTipo, setEnderecoTipo] = useState(d.endereco_tipo || 'casa');
+  const [enderecoComplemento, setEnderecoComplemento] = useState(d.endereco_complemento || '');
+  const [enderecoNumero, setEnderecoNumero] = useState(d.endereco_numero || '');
+  const [bairro, setBairro] = useState(d.bairro || '');
+  const [cidade, setCidade] = useState(d.cidade_os || '');
+  const [telefone, setTelefone] = useState(d.telefone_contato || '');
+
+  // ---- Janela 2: Produto
+  const [produtoTipo, setProdutoTipo] = useState(d.produto_tipo || 'celular');
+  const [marca, setMarca] = useState(d.marca || '');
+  const [modelo, setModelo] = useState(d.modelo || '');
+  const [marcaLivre, setMarcaLivre] = useState('');
+  const [modeloLivre, setModeloLivre] = useState('');
+  const [imei, setImei] = useState(d.imei || '');
+  const [produtoDescricao, setProdutoDescricao] = useState(d.produto_descricao || '');
+
+  // ---- Janela 3: Senha
+  const [senhaTipo, setSenhaTipo] = useState('pin');
+  const [senhaPin, setSenhaPin] = useState('');
+  const [mostrarPattern, setMostrarPattern] = useState(false);
+  const [patternData, setPatternData] = useState(null);
+
+  // ---- Janela 4: Problema
+  const [problema, setProblema] = useState(d.problema_descricao || '');
+
+  // ---- Janela 5: Assinatura
+  const [assinatura, setAssinatura] = useState(d.assinatura_cliente || null);
+
+  const proximo = () => setPasso((p) => Math.min(p + 1, PASSOS.length));
+  const voltar = () => setPasso((p) => Math.max(p - 1, 1));
+
+  // Marca/modelo efetivos (considerando opção "Outra"/"Outro modelo")
+  const marcaFinal = marca === 'Outra' ? marcaLivre : marca;
+  const modeloFinal = modelo === 'Outro modelo' ? modeloLivre : modelo;
+
+  const finalizar = async () => {
+    setSalvando(true);
+    try {
+      // 1) Salvar campos gerais (endereço, produto, problema)
+      const payload = {
+        produto_tipo: produtoTipo,
+        produto_descricao: produtoTipo === 'outro' ? produtoDescricao : null,
+        marca: produtoTipo === 'celular' ? marcaFinal : null,
+        modelo: produtoTipo === 'celular' ? modeloFinal : null,
+        imei: produtoTipo === 'celular' ? imei : null,
+        endereco_rua: enderecoRua,
+        endereco_tipo: enderecoTipo,
+        endereco_complemento: enderecoComplemento,
+        endereco_numero: enderecoNumero,
+        bairro: bairro,
+        cidade_os: cidade,
+        telefone_contato: telefone,
+        problema_descricao: problema,
+      };
+      await api.put(`/api/os/${ordemId}/completo`, payload);
+
+      // 2) Salvar senha
+      if (senhaTipo === 'pin' && senhaPin) {
+        await api.post(`/api/os/${ordemId}/senhas`, { tipo: 'pin', valor: senhaPin });
+      } else if (senhaTipo === 'padrao' && patternData) {
+        await api.post(`/api/os/${ordemId}/senhas/pattern`, {
+          pattern: patternData.pattern,
+          sequence: patternData.sequence,
+          duracao_ms: patternData.duration,
+          dispositivo: { tipo: 'browser', navegador: navigator.userAgent, resolucao: `${window.innerWidth}x${window.innerHeight}` },
+          timestamp: patternData.timestamp,
+        });
+      } else if (senhaTipo === 'nenhuma') {
+        await api.post(`/api/os/${ordemId}/senhas`, { tipo: 'nenhuma' });
+      }
+
+      // 3) Salvar assinatura
+      if (assinatura) {
+        await api.post(`/api/os/${ordemId}/assinatura`, { assinatura });
+      }
+
+      flash && flash('success', `OS ${numeroOS || ordemId} salva com sucesso!`);
+      onConcluir && onConcluir();
+    } catch (e) {
+      flash && flash('danger', `Erro ao salvar OS: ${e.response?.data?.detail || e.message}`);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const progresso = Math.round((passo / PASSOS.length) * 100);
+
+  return (
+    <Card className="mt-3">
+      <Card.Header className="d-flex justify-content-between align-items-center">
+        <span>
+          🪟 Assistente de OS {numeroOS && <Badge bg="info">{numeroOS}</Badge>}
+        </span>
+        <span className="text-muted small">Passo {passo} de {PASSOS.length}: {PASSOS[passo - 1]}</span>
+      </Card.Header>
+      <Card.Body>
+        <ProgressBar now={progresso} label={`${progresso}%`} className="mb-4" />
+
+        {/* JANELA 1 - ENDEREÇO */}
+        {passo === 1 && (
+          <div>
+            <h5 className="mb-3">📍 Endereço e Contato</h5>
+            <Row>
+              <Col md={8}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Nome da rua</Form.Label>
+                  <Form.Control value={enderecoRua} onChange={(e) => setEnderecoRua(e.target.value)} placeholder="Ex: Rua das Flores" />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Casa ou AP</Form.Label>
+                  <Form.Select value={enderecoTipo} onChange={(e) => setEnderecoTipo(e.target.value)}>
+                    <option value="casa">Casa</option>
+                    <option value="ap">Apartamento</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Número</Form.Label>
+                  <Form.Control value={enderecoNumero} onChange={(e) => setEnderecoNumero(e.target.value)} placeholder="Ex: 123" />
+                </Form.Group>
+              </Col>
+              <Col md={8}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Complemento</Form.Label>
+                  <Form.Control value={enderecoComplemento} onChange={(e) => setEnderecoComplemento(e.target.value)} placeholder="Ex: Bloco B, Apto 42" />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row>
+              <Col md={5}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Bairro</Form.Label>
+                  <Form.Control value={bairro} onChange={(e) => setBairro(e.target.value)} placeholder="Ex: Centro" />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Cidade</Form.Label>
+                  <Form.Control value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Ex: São Paulo" />
+                </Form.Group>
+              </Col>
+              <Col md={3}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Telefone</Form.Label>
+                  <Form.Control value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="Ex: 11 99999-9999" />
+                </Form.Group>
+              </Col>
+            </Row>
+          </div>
+        )}
+
+        {/* JANELA 2 - PRODUTO */}
+        {passo === 2 && (
+          <div>
+            <h5 className="mb-3">📦 Produto</h5>
+            <Form.Group className="mb-3">
+              <Form.Label>Tipo do produto</Form.Label>
+              <div className="d-flex gap-2 flex-wrap">
+                {TIPOS_PRODUTO.map((t) => (
+                  <Button
+                    key={t.valor}
+                    variant={produtoTipo === t.valor ? 'primary' : 'outline-primary'}
+                    onClick={() => setProdutoTipo(t.valor)}
+                  >
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
+            </Form.Group>
+
+            {produtoTipo === 'celular' && (
+              <>
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Marca</Form.Label>
+                      <Form.Select value={marca} onChange={(e) => { setMarca(e.target.value); setModelo(''); }}>
+                        <option value="">-- Escolha a marca --</option>
+                        {MARCAS_CELULAR.map((m) => <option key={m} value={m}>{m}</option>)}
+                      </Form.Select>
+                    </Form.Group>
+                    {marca === 'Outra' && (
+                      <Form.Group className="mb-3">
+                        <Form.Label>Digite a marca</Form.Label>
+                        <Form.Control value={marcaLivre} onChange={(e) => setMarcaLivre(e.target.value)} placeholder="Ex: Nokia" />
+                      </Form.Group>
+                    )}
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Modelo</Form.Label>
+                      <Form.Select value={modelo} onChange={(e) => setModelo(e.target.value)} disabled={!marca}>
+                        <option value="">-- Escolha o modelo --</option>
+                        {(MODELOS_POR_MARCA[marca] || []).map((m) => <option key={m} value={m}>{m}</option>)}
+                      </Form.Select>
+                    </Form.Group>
+                    {modelo === 'Outro modelo' && (
+                      <Form.Group className="mb-3">
+                        <Form.Label>Digite o modelo</Form.Label>
+                        <Form.Control value={modeloLivre} onChange={(e) => setModeloLivre(e.target.value)} placeholder="Ex: Lumia 630" />
+                      </Form.Group>
+                    )}
+                  </Col>
+                </Row>
+                <Form.Group className="mb-3">
+                  <Form.Label>IMEI (opcional)</Form.Label>
+                  <Form.Control value={imei} onChange={(e) => setImei(e.target.value)} placeholder="Ex: 356938035643809" />
+                </Form.Group>
+              </>
+            )}
+
+            {(produtoTipo === 'pc' || produtoTipo === 'pc_gamer') && (
+              <Alert variant="info">
+                Produto selecionado: <strong>{produtoTipo === 'pc' ? 'PC' : 'PC Gamer'}</strong>.
+                Você pode detalhar mais no campo de problema (próximas janelas).
+              </Alert>
+            )}
+
+            {produtoTipo === 'outro' && (
+              <Form.Group className="mb-3">
+                <Form.Label>Descreva o produto</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  value={produtoDescricao}
+                  onChange={(e) => setProdutoDescricao(e.target.value)}
+                  placeholder="Ex: Tablet, Videogame, Impressora..."
+                />
+              </Form.Group>
+            )}
+          </div>
+        )}
+
+        {/* JANELA 3 - SENHA */}
+        {passo === 3 && (
+          <div>
+            <h5 className="mb-3">🔐 Senha do Aparelho</h5>
+            <Form.Group className="mb-3">
+              <Form.Label>Tipo de senha</Form.Label>
+              <Form.Select value={senhaTipo} onChange={(e) => { setSenhaTipo(e.target.value); setMostrarPattern(false); }}>
+                <option value="pin">PIN (4-6 dígitos)</option>
+                <option value="padrao">Padrão (Desenho)</option>
+                <option value="nenhuma">Nenhuma</option>
+              </Form.Select>
+            </Form.Group>
+
+            {senhaTipo === 'pin' && (
+              <Form.Group className="mb-3" style={{ maxWidth: 240 }}>
+                <Form.Label>Valor do PIN</Form.Label>
+                <Form.Control value={senhaPin} onChange={(e) => setSenhaPin(e.target.value)} placeholder="Ex: 1234" />
+              </Form.Group>
+            )}
+
+            {senhaTipo === 'padrao' && (
+              <>
+                {!mostrarPattern && (
+                  <Button variant="primary" onClick={() => setMostrarPattern(true)}>
+                    {patternData ? '✏️ Redefinir Padrão' : '🎨 Desenhar Padrão'}
+                  </Button>
+                )}
+                {patternData && !mostrarPattern && (
+                  <Alert variant="success" className="mt-3">
+                    ✅ Padrão desenhado: <strong>{patternData.pattern}</strong> ({patternData.dotCount} pontos)
+                  </Alert>
+                )}
+                {mostrarPattern && (
+                  <div className="mt-3">
+                    <PatternDraw onPatternComplete={(p) => setPatternData(p)} />
+                    <Button variant="secondary" className="mt-2 w-100" onClick={() => setMostrarPattern(false)}>
+                      Concluir Desenho
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {senhaTipo === 'nenhuma' && (
+              <Alert variant="secondary">Aparelho sem senha (desbloqueado).</Alert>
+            )}
+          </div>
+        )}
+
+        {/* JANELA 4 - PROBLEMA */}
+        {passo === 4 && (
+          <div>
+            <h5 className="mb-3">🔧 Problema do Aparelho</h5>
+            <Form.Group>
+              <Form.Label>Descreva o problema relatado</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={6}
+                value={problema}
+                onChange={(e) => setProblema(e.target.value)}
+                placeholder="Ex: Tela quebrada, não liga, bateria vicia, molhou..."
+              />
+            </Form.Group>
+          </div>
+        )}
+
+        {/* JANELA 5 - ASSINATURA */}
+        {passo === 5 && (
+          <div>
+            <h5 className="mb-3">✍️ Assinatura do Cliente</h5>
+            <AssinaturaDigital onChange={setAssinatura} valorInicial={dadosIniciais?.assinatura_cliente || null} />
+          </div>
+        )}
+
+        {/* NAVEGAÇÃO */}
+        <hr />
+        <div className="d-flex justify-content-between">
+          <Button variant="outline-secondary" onClick={onCancelar} disabled={salvando}>
+            ✖️ Cancelar
+          </Button>
+          <div className="d-flex gap-2">
+            {passo > 1 && (
+              <Button variant="secondary" onClick={voltar} disabled={salvando}>
+                ◀️ Voltar
+              </Button>
+            )}
+            {passo < PASSOS.length && (
+              <Button variant="primary" onClick={proximo} disabled={salvando}>
+                Próximo ▶️
+              </Button>
+            )}
+            {passo === PASSOS.length && (
+              <Button variant="success" onClick={finalizar} disabled={salvando}>
+                {salvando ? 'Salvando...' : '💾 Finalizar e Salvar OS'}
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card.Body>
+    </Card>
+  );
+}

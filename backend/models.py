@@ -57,6 +57,25 @@ class OrdemServico(Base):
     modelo = Column(String(120), index=True)  # Galaxy S10, iPhone 12, etc.
     imei = Column(String(20), unique=True, nullable=True, index=True)  # IMEI do dispositivo
 
+    # Produto (assistente de cadastro)
+    produto_tipo = Column(String(30))  # celular, pc, pc_gamer, outro
+    produto_descricao = Column(String(255))  # descrição livre quando tipo = outro
+
+    # Endereço / Contato (assistente de cadastro)
+    endereco_rua = Column(String(150))
+    endereco_tipo = Column(String(20))  # casa, ap
+    endereco_complemento = Column(String(120))
+    endereco_numero = Column(String(20))
+    bairro = Column(String(80))
+    cidade_os = Column(String(80))
+    telefone_contato = Column(String(20))
+
+    # Problema relatado
+    problema_descricao = Column(Text)
+
+    # Assinatura digital do cliente (caneta USB) - imagem base64 PNG
+    assinatura_cliente = Column(Text)
+
     # Senhas
     senha_tipo = Column(String(20))  # pin, padrao, biometria, nenhuma
     senha_imagem = Column(Text)  # imagem do padrão (base64)
