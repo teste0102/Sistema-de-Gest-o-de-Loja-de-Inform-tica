@@ -1,0 +1,99 @@
+╔════════════════════════════════════════════════════════════════╗
+║          QUAL SCRIPT USAR PARA REINICIAR?                      ║
+╚════════════════════════════════════════════════════════════════╝
+
+📍 WINDOWS 10/11 (MELHOR OPÇÃO)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ REINICIAR_SERVIDOR.ps1
+
+  Como usar:
+  1. Clique direito → "Executar com PowerShell"
+  2. Ou execute: .\REINICIAR_SERVIDOR.ps1
+
+  Vantagens:
+  • Cores formatadas no console
+  • Pergunta se quer abrir navegador
+  • Mais rápido e moderno
+
+
+📍 WINDOWS (ALTERNATIVA SIMPLES)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ REINICIAR_SERVIDOR.bat
+
+  Como usar:
+  1. Duplo clique no arquivo
+  2. Ou execute: REINICIAR_SERVIDOR.bat
+
+  Vantagens:
+  • Mais simples
+  • Funciona em qualquer Windows
+  • Sem necessidade de PowerShell
+
+
+📍 LINUX / MAC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ REINICIAR_SERVIDOR.sh
+
+  Como usar:
+  1. Terminal: chmod +x REINICIAR_SERVIDOR.sh
+  2. Depois: ./REINICIAR_SERVIDOR.sh
+
+  Vantagens:
+  • Script shell nativo
+  • Funciona em Linux/Mac
+
+
+════════════════════════════════════════════════════════════════
+
+⏱️  TEMPO DE REINICIALIZAÇÃO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Parar containers:     ~1-2 segundos
+  Iniciar containers:   ~2-3 segundos
+  Aguardar prontos:     10 segundos
+  ────────────────────────────────
+  TOTAL:                ~15 segundos ✅
+
+  Após reiniciar, veja:
+  • Frontend: http://localhost:3000
+  • Backend:  http://localhost:8000
+
+
+════════════════════════════════════════════════════════════════
+
+❓ QUANDO PRECISA REINICIAR?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✅ SIM - Reinicie quando:
+     • Modificar código Python (backend)
+     • Modificar código React (frontend)
+     • Adicionar novas rotas
+     • Adicionar novos componentes
+     • Atualizar dependências
+
+  ❌ NÃO - Não precisa quando:
+     • Mudar só CSS
+     • Apenas ler dados (GET)
+     • Recarregar página (F5)
+
+
+════════════════════════════════════════════════════════════════
+
+🚀 RÁPIDO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Se quiser ver logs em tempo real:
+
+  docker compose logs -f
+
+Se quiser apenas verificar status:
+
+  docker compose ps
+
+
+════════════════════════════════════════════════════════════════
+
+📖 LEIA: README_REINICIAR.md
+   (Explicação detalhada de tudo)
+
+════════════════════════════════════════════════════════════════
