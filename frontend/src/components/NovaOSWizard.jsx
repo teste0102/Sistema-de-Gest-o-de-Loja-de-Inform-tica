@@ -15,7 +15,7 @@ import { MARCAS_CELULAR, MODELOS_POR_MARCA, TIPOS_PRODUTO } from '../data/marcas
 //   flash(v, msg) - função para mensagens do pai
 const PASSOS = ['Endereço', 'Produto', 'Senha', 'Problema', 'Assinatura'];
 
-export default function NovaOSWizard({ ordemId, numeroOS, dadosIniciais = null, onConcluir, onCancelar, flash }) {
+export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, dadosIniciais = null, onConcluir, onCancelar, flash }) {
   const [passo, setPasso] = useState(1);
   const [salvando, setSalvando] = useState(false);
   const d = dadosIniciais || {};
@@ -60,6 +60,17 @@ export default function NovaOSWizard({ ordemId, numeroOS, dadosIniciais = null, 
   const finalizar = async () => {
     setSalvando(true);
     try {
+      // 0) Se for uma OS nova (sem id), gerar o número LOCAL agora.
+      //    O número é sequencial local; a sincronização com o servidor
+      //    remoto (IP + pasta) acontece depois, no final do programa.
+      let idOS = ordemId;
+      let numeroFinal = numeroOS;
+      if (!idOS) {
+        const gerada = await api.post(`/api/os/gerar-numero?cliente_id=${clienteId}`);
+        idOS = gerada.ordem_id;
+        numeroFinal = gerada.numero_os;
+      }
+
       // 1) Salvar campos gerais (endereço, produto, problema)
       const payload = {
         produto_tipo: produtoTipo,
@@ -76,13 +87,13 @@ export default function NovaOSWizard({ ordemId, numeroOS, dadosIniciais = null, 
         telefone_contato: telefone,
         problema_descricao: problema,
       };
-      await api.put(`/api/os/${ordemId}/completo`, payload);
+      await api.put(`/api/os/${idOS}/completo`, payload);
 
       // 2) Salvar senha
       if (senhaTipo === 'pin' && senhaPin) {
-        await api.post(`/api/os/${ordemId}/senhas`, { tipo: 'pin', valor: senhaPin });
+        await api.post(`/api/os/${idOS}/senhas`, { tipo: 'pin', valor: senhaPin });
       } else if (senhaTipo === 'padrao' && patternData) {
-        await api.post(`/api/os/${ordemId}/senhas/pattern`, {
+        await api.post(`/api/os/${idOS}/senhas/pattern`, {
           pattern: patternData.pattern,
           sequence: patternData.sequence,
           duracao_ms: patternData.duration,
@@ -90,16 +101,16 @@ export default function NovaOSWizard({ ordemId, numeroOS, dadosIniciais = null, 
           timestamp: patternData.timestamp,
         });
       } else if (senhaTipo === 'nenhuma') {
-        await api.post(`/api/os/${ordemId}/senhas`, { tipo: 'nenhuma' });
+        await api.post(`/api/os/${idOS}/senhas`, { tipo: 'nenhuma' });
       }
 
       // 3) Salvar assinatura
       if (assinatura) {
-        await api.post(`/api/os/${ordemId}/assinatura`, { assinatura });
+        await api.post(`/api/os/${idOS}/assinatura`, { assinatura });
       }
 
-      flash && flash('success', `OS ${numeroOS || ordemId} salva com sucesso!`);
-      onConcluir && onConcluir();
+      flash && flash('success', `OS ${numeroFinal || idOS} salva com sucesso!`);
+      onConcluir && onConcluir(idOS);
     } catch (e) {
       flash && flash('danger', `Erro ao salvar OS: ${e.response?.data?.detail || e.message}`);
     } finally {
@@ -113,7 +124,7 @@ export default function NovaOSWizard({ ordemId, numeroOS, dadosIniciais = null, 
     <Card className="mt-3">
       <Card.Header className="d-flex justify-content-between align-items-center">
         <span>
-          🪟 Assistente de OS {numeroOS && <Badge bg="info">{numeroOS}</Badge>}
+          🪟 {ordemId ? 'Alterar OS' : 'Nova OS'} {numeroOS ? <Badge bg="info">{numeroOS}</Badge> : <Badge bg="secondary">nº gerado ao salvar</Badge>}
         </span>
         <span className="text-muted small">Passo {passo} de {PASSOS.length}: {PASSOS[passo - 1]}</span>
       </Card.Header>

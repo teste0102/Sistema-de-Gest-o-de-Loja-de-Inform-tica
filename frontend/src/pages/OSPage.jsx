@@ -37,6 +37,10 @@ export default function OSPage() {
   const [mostrarWizard, setMostrarWizard] = useState(false);
   const [wizardDados, setWizardDados] = useState(null); // null = novo, objeto = alterar
 
+  // Modo da tela: 'nova' abre direto no assistente (endereço); 'existente' carrega OS
+  const [modo, setModo] = useState('nova');
+  const [wizardKey, setWizardKey] = useState(0); // recria o assistente ao cancelar
+
   const flash = (variant, texto) => {
     setMsg({ variant, texto });
     setTimeout(() => setMsg(null), 5000);
@@ -96,6 +100,24 @@ export default function OSPage() {
     setMostrarWizard(false);
     setWizardDados(null);
     carregarOS();
+  };
+
+  // Carregar uma OS por ID explícito (usado após criar no assistente)
+  const carregarOSPorId = async (id) => {
+    try {
+      const res = await api.get(`/api/os/${id}`);
+      setOrdemId(String(id));
+      setOrdemAtiva(res);
+    } catch (e) {
+      flash('danger', `Erro ao carregar OS ${id}: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  // Concluir o assistente no modo NOVA: cria a OS e mostra ela em "existente"
+  const aoConcluirNova = (novoId) => {
+    setModo('existente');
+    if (novoId) carregarOSPorId(novoId);
+    setWizardKey((k) => k + 1); // reseta o assistente para a próxima
   };
 
   // ===== SENHA =====
@@ -307,28 +329,37 @@ export default function OSPage() {
 
       {msg && <Alert variant={msg.variant}>{msg.texto}</Alert>}
 
-      {/* Gerar / Carregar OS */}
-      <Row>
-        <Col md={6} className="mb-4">
-          <Card>
-            <Card.Header>🆕 Gerar Nova OS</Card.Header>
-            <Card.Body>
-              <Form.Group className="mb-3">
-                <Form.Label>ID do Cliente</Form.Label>
-                <Form.Control
-                  type="number"
-                  placeholder="Ex: 1"
-                  value={clienteId}
-                  onChange={(e) => setClienteId(e.target.value)}
-                />
-              </Form.Group>
-              <Button variant="primary" onClick={gerarNumeroOS} disabled={gerando}>
-                {gerando ? <Spinner size="sm" /> : '🆕 Gerar Número OS'}
-              </Button>
-            </Card.Body>
-          </Card>
-        </Col>
+      {/* Seletor de modo: Nova OS (assistente direto) x OS Existente */}
+      <div className="d-flex gap-2 mb-4">
+        <Button
+          variant={modo === 'nova' ? 'primary' : 'outline-primary'}
+          onClick={() => { setModo('nova'); setOrdemAtiva(null); setMostrarWizard(false); }}
+        >
+          🆕 Nova OS
+        </Button>
+        <Button
+          variant={modo === 'existente' ? 'primary' : 'outline-primary'}
+          onClick={() => setModo('existente')}
+        >
+          📂 OS Existente
+        </Button>
+      </div>
 
+      {/* MODO NOVA: assistente abre direto na tela de endereço (número gerado ao salvar) */}
+      {modo === 'nova' && (
+        <NovaOSWizard
+          key={`nova-${wizardKey}`}
+          ordemId={null}
+          clienteId={clienteId || 1}
+          onConcluir={aoConcluirNova}
+          onCancelar={() => setWizardKey((k) => k + 1)}
+          flash={flash}
+        />
+      )}
+
+      {/* MODO EXISTENTE: carregar OS pelo ID */}
+      {modo === 'existente' && (
+      <Row>
         <Col md={6} className="mb-4">
           <Card>
             <Card.Header>📂 Carregar OS Existente</Card.Header>
@@ -349,6 +380,7 @@ export default function OSPage() {
           </Card>
         </Col>
       </Row>
+      )}
 
       {ordemAtiva && (() => {
         const fechada = String(ordemAtiva.status || '').toLowerCase().startsWith('fech');
@@ -412,7 +444,8 @@ export default function OSPage() {
         />
       )}
 
-      {/* Ferramentas por OS */}
+      {/* Ferramentas por OS (só no modo existente) */}
+      {modo === 'existente' && (
       <Card className={mostrarWizard ? 'd-none' : ''}>
         <Card.Body>
           <Tabs defaultActiveKey="senha" className="mb-3">
@@ -662,6 +695,7 @@ export default function OSPage() {
           </Tabs>
         </Card.Body>
       </Card>
+      )}
     </Container>
   );
 }
