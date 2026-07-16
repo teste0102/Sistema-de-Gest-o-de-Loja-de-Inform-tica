@@ -62,6 +62,7 @@ class OrdemServico(Base):
     produto_descricao = Column(String(255))  # descrição livre quando tipo = outro
 
     # Endereço / Contato (assistente de cadastro)
+    nome_cliente = Column(String(120))  # nome do cliente digitado na OS
     endereco_rua = Column(String(150))
     endereco_tipo = Column(String(20))  # casa, ap
     endereco_complemento = Column(String(120))

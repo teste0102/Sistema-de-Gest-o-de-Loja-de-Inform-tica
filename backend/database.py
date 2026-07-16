@@ -38,6 +38,7 @@ def run_auto_migrations():
     """
     alteracoes = [
         # Assistente de cadastro de OS (Wizard) - migration 003
+        "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS nome_cliente VARCHAR(120)",
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS produto_tipo VARCHAR(30)",
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS produto_descricao VARCHAR(255)",
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS endereco_rua VARCHAR(150)",

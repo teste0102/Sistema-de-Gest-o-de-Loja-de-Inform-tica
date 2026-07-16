@@ -63,6 +63,7 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
   const d = dadosIniciais || {};
 
   // ---- Janela 1: Endereço / Contato
+  const [nomeCliente, setNomeCliente] = useState(d.nome_cliente || '');
   const [enderecoRua, setEnderecoRua] = useState(d.endereco_rua || '');
   const [enderecoTipo, setEnderecoTipo] = useState(d.endereco_tipo || 'casa');
   const [enderecoComplemento, setEnderecoComplemento] = useState(d.endereco_complemento || '');
@@ -127,6 +128,7 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
         marca: produtoTipo === 'celular' ? marcaFinal : null,
         modelo: produtoTipo === 'celular' ? modeloFinal : null,
         imei: produtoTipo === 'celular' ? imei : null,
+        nome_cliente: nomeCliente,
         endereco_rua: enderecoRua,
         endereco_tipo: enderecoTipo,
         endereco_complemento: enderecoComplemento,
@@ -187,7 +189,15 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
         {/* JANELA 1 - ENDEREÇO */}
         {passo === 1 && (
           <div>
-            <h5 className="mb-3">📍 Endereço e Contato</h5>
+            <h5 className="mb-3">📍 Cliente, Endereço e Contato</h5>
+            <Row>
+              <Col md={12}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Nome do cliente</Form.Label>
+                  <Form.Control value={nomeCliente} onChange={(e) => setNomeCliente(e.target.value)} placeholder="Ex: João da Silva" />
+                </Form.Group>
+              </Col>
+            </Row>
             <Row>
               <Col md={8}>
                 <Form.Group className="mb-3">

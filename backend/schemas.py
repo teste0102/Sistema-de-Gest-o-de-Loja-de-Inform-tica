@@ -87,6 +87,7 @@ class OrdemWizardUpdate(BaseModel):
     modelo: Optional[str] = None
     imei: Optional[str] = None
     # Endereço / Contato
+    nome_cliente: Optional[str] = None
     endereco_rua: Optional[str] = None
     endereco_tipo: Optional[str] = None      # casa, ap
     endereco_complemento: Optional[str] = None

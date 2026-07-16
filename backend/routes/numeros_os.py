@@ -267,6 +267,7 @@ def obter_os_por_id(
             "modelo": ordem.modelo,
             "imei": ordem.imei,
             # Endereço / Contato
+            "nome_cliente": ordem.nome_cliente,
             "endereco_rua": ordem.endereco_rua,
             "endereco_tipo": ordem.endereco_tipo,
             "endereco_complemento": ordem.endereco_complemento,

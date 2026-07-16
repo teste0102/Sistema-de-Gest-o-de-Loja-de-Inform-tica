@@ -413,8 +413,9 @@ export default function OSPage() {
               </div>
 
               {/* Resumo dos dados cadastrados */}
-              {(ordemAtiva.marca || ordemAtiva.produto_tipo || ordemAtiva.endereco_rua) && (
+              {(ordemAtiva.nome_cliente || ordemAtiva.marca || ordemAtiva.produto_tipo || ordemAtiva.endereco_rua) && (
                 <div className="mt-3 small text-muted">
+                  {ordemAtiva.nome_cliente && <span className="me-3">👤 <strong>{ordemAtiva.nome_cliente}</strong></span>}
                   {ordemAtiva.produto_tipo && <span className="me-3">📦 {ordemAtiva.produto_tipo}</span>}
                   {ordemAtiva.marca && <span className="me-3">🏷️ {ordemAtiva.marca} {ordemAtiva.modelo}</span>}
                   {ordemAtiva.endereco_rua && (
