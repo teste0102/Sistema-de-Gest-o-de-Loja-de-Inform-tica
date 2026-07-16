@@ -356,60 +356,60 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
 
             {senhaTipo === 'padrao' && (
               <>
-                {/* Visualização (replay) da senha */}
+                {/* MODO REPLAY: reproduz o desenho */}
                 {replayWizard ? (
-                  <div className="mt-3">
+                  <div className="mt-2">
                     <Alert variant="info">▶️ Reproduzindo a senha desenhada (garantia / retrabalho)</Alert>
                     <PatternDraw key="replay-wizard" onPatternComplete={() => {}} onReplay replayData={replayWizard} />
                     <Button variant="secondary" className="mt-2 w-100" onClick={() => setReplayWizard(null)}>
-                      ◀️ Fechar Replay
+                      ◀️ Voltar ao Desenho
                     </Button>
                   </div>
                 ) : (
-                  <>
-                    {!mostrarPattern && (
-                      <div className="d-flex gap-2 flex-wrap">
-                        <Button variant="primary" onClick={() => setMostrarPattern(true)}>
-                          {patternData ? '✏️ Redefinir Padrão' : '🎨 Desenhar Padrão'}
-                        </Button>
-                        {/* Replay do padrão recém desenhado */}
-                        {patternData && (
-                          <Button variant="outline-info" onClick={() => setReplayWizard({ pattern: patternData.pattern, sequence: patternData.sequence })}>
+                  <div className="mt-2">
+                    {/* Canvas sempre visível: desenhe direto */}
+                    <PatternDraw key="draw-wizard" onPatternComplete={(p) => setPatternData(p)} />
+
+                    {patternData && (
+                      <>
+                        <Alert variant="success" className="mt-3 mb-2">
+                          ✅ Padrão desenhado: <strong>{patternData.pattern}</strong> ({patternData.dotCount} pontos)
+                        </Alert>
+                        <div className="d-flex gap-2 flex-wrap">
+                          <Button
+                            variant="success"
+                            onClick={() => flash && flash('success', 'Padrão salvo! Será gravado ao finalizar a OS. Use "Ver Replay" para conferir.')}
+                          >
+                            💾 Salvar Padrão
+                          </Button>
+                          <Button
+                            variant="info"
+                            onClick={() => setReplayWizard({ pattern: patternData.pattern, sequence: patternData.sequence })}
+                          >
                             ▶️ Ver Replay
                           </Button>
-                        )}
-                        {/* Replay da senha JÁ SALVA (modo Alterar) */}
-                        {ordemId && dadosIniciais?.tem_replay && (
-                          <Button
-                            variant="outline-warning"
-                            onClick={async () => {
-                              try {
-                                const r = await api.get(`/api/os/${ordemId}/senhas/replay`);
-                                setReplayWizard({ pattern: r.pattern || '', sequence: r.sequence || [] });
-                              } catch (e) {
-                                flash && flash('danger', `Erro ao carregar replay: ${e.response?.data?.detail || e.message}`);
-                              }
-                            }}
-                          >
-                            🔒 Ver Senha Salva (Replay)
-                          </Button>
-                        )}
-                      </div>
+                        </div>
+                      </>
                     )}
-                    {patternData && !mostrarPattern && (
-                      <Alert variant="success" className="mt-3">
-                        ✅ Padrão desenhado: <strong>{patternData.pattern}</strong> ({patternData.dotCount} pontos)
-                      </Alert>
+
+                    {/* Replay da senha JÁ SALVA (modo Alterar) */}
+                    {ordemId && dadosIniciais?.tem_replay && (
+                      <Button
+                        variant="outline-warning"
+                        className="mt-2"
+                        onClick={async () => {
+                          try {
+                            const r = await api.get(`/api/os/${ordemId}/senhas/replay`);
+                            setReplayWizard({ pattern: r.pattern || '', sequence: r.sequence || [] });
+                          } catch (e) {
+                            flash && flash('danger', `Erro ao carregar replay: ${e.response?.data?.detail || e.message}`);
+                          }
+                        }}
+                      >
+                        🔒 Ver Senha Salva (Replay)
+                      </Button>
                     )}
-                    {mostrarPattern && (
-                      <div className="mt-3">
-                        <PatternDraw onPatternComplete={(p) => setPatternData(p)} />
-                        <Button variant="secondary" className="mt-2 w-100" onClick={() => setMostrarPattern(false)}>
-                          Concluir Desenho
-                        </Button>
-                      </div>
-                    )}
-                  </>
+                  </div>
                 )}
               </>
             )}
