@@ -50,6 +50,12 @@ async def startup_event():
     if db_status["status"] == "ok":
         logger.info("✅ Conexão com BD OK")
         init_db()  # Criar tabelas se não existir
+        # Popular dados iniciais (cliente/OS/lançamento de exemplo)
+        try:
+            from seed import seed_dados_iniciais
+            seed_dados_iniciais()
+        except Exception as e:
+            logger.warning(f"⚠️  Falha no seed inicial (ignorado): {e}")
     else:
         logger.warning(f"⚠️  BD Desconectado: {db_status['message']}")
     
