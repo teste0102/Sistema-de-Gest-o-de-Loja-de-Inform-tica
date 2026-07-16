@@ -49,6 +49,11 @@ def run_auto_migrations():
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS telefone_contato VARCHAR(20)",
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS problema_descricao TEXT",
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS assinatura_cliente TEXT",
+        # Orçamento (migration 004)
+        "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS valor_aprovado_estimado DOUBLE PRECISION DEFAULT 0.0",
+        "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS valor_aprovado_parcelas INTEGER DEFAULT 1",
+        "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS valor_total_estimado DOUBLE PRECISION DEFAULT 0.0",
+        "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS valor_total_parcelas INTEGER DEFAULT 1",
     ]
     with engine.begin() as conn:
         for sql in alteracoes:

@@ -5,12 +5,54 @@ import PatternDraw from './PatternDraw';
 import AssinaturaDigital from './AssinaturaDigital';
 import { MARCAS_CELULAR, MODELOS_POR_MARCA, TIPOS_PRODUTO } from '../data/marcasModelos';
 
+// ===== Helpers de moeda (formato BR: 1.234,56) =====
+const soDigitos = (s) => String(s || '').replace(/\D/g, '');
+const centavosParaNumero = (cent) => parseInt(soDigitos(cent) || '0', 10) / 100;
+const numeroParaCentavos = (n) => (n ? Math.round(n * 100).toString() : '');
+const fmtBRL = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Campo de valor (moeda) + parcelas (vezes) com valor por parcela automático
+function CampoValorParcela({ titulo, cent, setCent, parcelas, setParcelas }) {
+  const valor = centavosParaNumero(cent);
+  const porParcela = parcelas > 0 ? valor / parcelas : valor;
+  return (
+    <div className="mb-3 p-3" style={{ border: '1px solid #e0e0e0', borderRadius: 8, background: '#fafafa' }}>
+      <Form.Label className="fw-bold">{titulo}</Form.Label>
+      <Row className="g-2 align-items-end">
+        <Col md={6}>
+          <Form.Label className="small mb-1">Valor</Form.Label>
+          <div className="input-group">
+            <span className="input-group-text">R$</span>
+            <Form.Control
+              inputMode="numeric"
+              value={fmtBRL(valor)}
+              onChange={(e) => setCent(soDigitos(e.target.value))}
+              placeholder="0,00"
+            />
+          </div>
+        </Col>
+        <Col md={3}>
+          <Form.Label className="small mb-1">Vezes</Form.Label>
+          <Form.Select value={parcelas} onChange={(e) => setParcelas(parseInt(e.target.value, 10))}>
+            {[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => <option key={n} value={n}>{n}x</option>)}
+          </Form.Select>
+        </Col>
+        <Col md={3}>
+          <Form.Label className="small mb-1">Por parcela</Form.Label>
+          <div className="form-control bg-white text-success fw-bold">R$ {fmtBRL(porParcela)}</div>
+        </Col>
+      </Row>
+    </div>
+  );
+}
+
 // Assistente de cadastro/alteração de OS em janelas sequenciais.
 // Props:
-//   ordemId       - ID da OS (obrigatório, já criada)
+//   ordemId       - ID da OS (null = nova; número gerado ao salvar)
+//   clienteId     - cliente da OS nova (default 1)
 //   numeroOS      - número para exibição
 //   dadosIniciais - objeto do GET da OS (modo Alterar) ou null (nova)
-//   onConcluir()  - callback ao finalizar
+//   onConcluir(id)- callback ao finalizar (recebe o id da OS)
 //   onCancelar()  - callback ao cancelar
 //   flash(v, msg) - função para mensagens do pai
 const PASSOS = ['Endereço', 'Produto', 'Senha', 'Problema', 'Assinatura'];
@@ -44,11 +86,18 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
   const [mostrarPattern, setMostrarPattern] = useState(false);
   const [patternData, setPatternData] = useState(null);
 
-  // ---- Janela 4: Problema
+  // ---- Janela 4: Problema + Orçamento
   const [problema, setProblema] = useState(d.problema_descricao || '');
+  const [valorAprovadoCent, setValorAprovadoCent] = useState(numeroParaCentavos(d.valor_aprovado_estimado));
+  const [parcelasAprovado, setParcelasAprovado] = useState(d.valor_aprovado_parcelas || 1);
+  const [valorTotalCent, setValorTotalCent] = useState(numeroParaCentavos(d.valor_total_estimado));
+  const [parcelasTotal, setParcelasTotal] = useState(d.valor_total_parcelas || 1);
 
   // ---- Janela 5: Assinatura
   const [assinatura, setAssinatura] = useState(d.assinatura_cliente || null);
+
+  // Replay da senha (visualização): {pattern, sequence} ou null
+  const [replayWizard, setReplayWizard] = useState(null);
 
   const proximo = () => setPasso((p) => Math.min(p + 1, PASSOS.length));
   const voltar = () => setPasso((p) => Math.max(p - 1, 1));
@@ -86,6 +135,10 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
         cidade_os: cidade,
         telefone_contato: telefone,
         problema_descricao: problema,
+        valor_aprovado_estimado: centavosParaNumero(valorAprovadoCent),
+        valor_aprovado_parcelas: parseInt(parcelasAprovado, 10) || 1,
+        valor_total_estimado: centavosParaNumero(valorTotalCent),
+        valor_total_parcelas: parseInt(parcelasTotal, 10) || 1,
       };
       await api.put(`/api/os/${idOS}/completo`, payload);
 
@@ -293,23 +346,60 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
 
             {senhaTipo === 'padrao' && (
               <>
-                {!mostrarPattern && (
-                  <Button variant="primary" onClick={() => setMostrarPattern(true)}>
-                    {patternData ? '✏️ Redefinir Padrão' : '🎨 Desenhar Padrão'}
-                  </Button>
-                )}
-                {patternData && !mostrarPattern && (
-                  <Alert variant="success" className="mt-3">
-                    ✅ Padrão desenhado: <strong>{patternData.pattern}</strong> ({patternData.dotCount} pontos)
-                  </Alert>
-                )}
-                {mostrarPattern && (
+                {/* Visualização (replay) da senha */}
+                {replayWizard ? (
                   <div className="mt-3">
-                    <PatternDraw onPatternComplete={(p) => setPatternData(p)} />
-                    <Button variant="secondary" className="mt-2 w-100" onClick={() => setMostrarPattern(false)}>
-                      Concluir Desenho
+                    <Alert variant="info">▶️ Reproduzindo a senha desenhada (garantia / retrabalho)</Alert>
+                    <PatternDraw key="replay-wizard" onPatternComplete={() => {}} onReplay replayData={replayWizard} />
+                    <Button variant="secondary" className="mt-2 w-100" onClick={() => setReplayWizard(null)}>
+                      ◀️ Fechar Replay
                     </Button>
                   </div>
+                ) : (
+                  <>
+                    {!mostrarPattern && (
+                      <div className="d-flex gap-2 flex-wrap">
+                        <Button variant="primary" onClick={() => setMostrarPattern(true)}>
+                          {patternData ? '✏️ Redefinir Padrão' : '🎨 Desenhar Padrão'}
+                        </Button>
+                        {/* Replay do padrão recém desenhado */}
+                        {patternData && (
+                          <Button variant="outline-info" onClick={() => setReplayWizard({ pattern: patternData.pattern, sequence: patternData.sequence })}>
+                            ▶️ Ver Replay
+                          </Button>
+                        )}
+                        {/* Replay da senha JÁ SALVA (modo Alterar) */}
+                        {ordemId && dadosIniciais?.tem_replay && (
+                          <Button
+                            variant="outline-warning"
+                            onClick={async () => {
+                              try {
+                                const r = await api.get(`/api/os/${ordemId}/senhas/replay`);
+                                setReplayWizard({ pattern: r.pattern || '', sequence: r.sequence || [] });
+                              } catch (e) {
+                                flash && flash('danger', `Erro ao carregar replay: ${e.response?.data?.detail || e.message}`);
+                              }
+                            }}
+                          >
+                            🔒 Ver Senha Salva (Replay)
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    {patternData && !mostrarPattern && (
+                      <Alert variant="success" className="mt-3">
+                        ✅ Padrão desenhado: <strong>{patternData.pattern}</strong> ({patternData.dotCount} pontos)
+                      </Alert>
+                    )}
+                    {mostrarPattern && (
+                      <div className="mt-3">
+                        <PatternDraw onPatternComplete={(p) => setPatternData(p)} />
+                        <Button variant="secondary" className="mt-2 w-100" onClick={() => setMostrarPattern(false)}>
+                          Concluir Desenho
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -320,20 +410,36 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
           </div>
         )}
 
-        {/* JANELA 4 - PROBLEMA */}
+        {/* JANELA 4 - PROBLEMA + ORÇAMENTO */}
         {passo === 4 && (
           <div>
             <h5 className="mb-3">🔧 Problema do Aparelho</h5>
-            <Form.Group>
+            <Form.Group className="mb-4">
               <Form.Label>Descreva o problema relatado</Form.Label>
               <Form.Control
                 as="textarea"
-                rows={6}
+                rows={4}
                 value={problema}
                 onChange={(e) => setProblema(e.target.value)}
                 placeholder="Ex: Tela quebrada, não liga, bateria vicia, molhou..."
               />
             </Form.Group>
+
+            <h6 className="mb-3">💰 Orçamento</h6>
+            <CampoValorParcela
+              titulo="Valor aprovado (referência)"
+              cent={valorAprovadoCent}
+              setCent={setValorAprovadoCent}
+              parcelas={parcelasAprovado}
+              setParcelas={setParcelasAprovado}
+            />
+            <CampoValorParcela
+              titulo="Valor total estimado"
+              cent={valorTotalCent}
+              setCent={setValorTotalCent}
+              parcelas={parcelasTotal}
+              setParcelas={setParcelasTotal}
+            />
           </div>
         )}
 

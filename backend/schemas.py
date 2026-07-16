@@ -96,6 +96,11 @@ class OrdemWizardUpdate(BaseModel):
     telefone_contato: Optional[str] = None
     # Problema
     problema_descricao: Optional[str] = None
+    # Orçamento
+    valor_aprovado_estimado: Optional[float] = None
+    valor_aprovado_parcelas: Optional[int] = None
+    valor_total_estimado: Optional[float] = None
+    valor_total_parcelas: Optional[int] = None
     # Assinatura (base64 PNG)
     assinatura_cliente: Optional[str] = None
     # Gerais

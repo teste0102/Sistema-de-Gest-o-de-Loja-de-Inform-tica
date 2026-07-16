@@ -276,6 +276,11 @@ def obter_os_por_id(
             "telefone_contato": ordem.telefone_contato,
             # Problema
             "problema_descricao": ordem.problema_descricao,
+            # Orçamento
+            "valor_aprovado_estimado": ordem.valor_aprovado_estimado,
+            "valor_aprovado_parcelas": ordem.valor_aprovado_parcelas,
+            "valor_total_estimado": ordem.valor_total_estimado,
+            "valor_total_parcelas": ordem.valor_total_parcelas,
             # Assinatura
             "tem_assinatura": ordem.assinatura_cliente is not None,
             "assinatura_cliente": ordem.assinatura_cliente,

@@ -73,6 +73,12 @@ class OrdemServico(Base):
     # Problema relatado
     problema_descricao = Column(Text)
 
+    # Orçamento (valores estimados + parcelamento)
+    valor_aprovado_estimado = Column(Float, default=0.0)   # valor aprovado de referência
+    valor_aprovado_parcelas = Column(Integer, default=1)   # em quantas vezes
+    valor_total_estimado = Column(Float, default=0.0)      # valor total estimado
+    valor_total_parcelas = Column(Integer, default=1)      # em quantas vezes
+
     # Assinatura digital do cliente (caneta USB) - imagem base64 PNG
     assinatura_cliente = Column(Text)
 
