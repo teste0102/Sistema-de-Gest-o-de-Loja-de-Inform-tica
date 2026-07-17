@@ -57,11 +57,18 @@ def gerar_numero_os(
         # Gerar número OS
         numero_os = NumeroOSService.gerar_numero(db, cliente_id)
 
+        # Próximo número inteiro sequencial (para compatibilidade com a lista de ordens)
+        from sqlalchemy import func as _func
+        maior = db.query(_func.max(OrdemServico.numero)).scalar() or 0
+        proximo_numero = int(maior) + 1
+
         # Criar ordem de serviço com número OS
         nova_ordem = OrdemServico(
             cliente_id=cliente_id,
+            numero=proximo_numero,
             numero_os=numero_os,
             status="aberta",
+            data_abertura=datetime.now().date(),
             data_criacao=datetime.now()
         )
 

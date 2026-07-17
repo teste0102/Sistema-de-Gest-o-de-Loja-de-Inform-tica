@@ -4,6 +4,7 @@ import api from '../services/api';
 import PatternDraw from './PatternDraw';
 import AssinaturaDigital from './AssinaturaDigital';
 import { MARCAS_CELULAR, MODELOS_POR_MARCA, TIPOS_PRODUTO } from '../data/marcasModelos';
+import { abrirImpressao, campo } from '../utils/print';
 
 // ===== Helpers de moeda (formato BR: 1.234,56) =====
 const soDigitos = (s) => String(s || '').replace(/\D/g, '');
@@ -62,6 +63,10 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
   const [salvando, setSalvando] = useState(false);
   const d = dadosIniciais || {};
 
+  // Id/numero da OS (para NOVA, são criados no primeiro salvamento)
+  const [idAtual, setIdAtual] = useState(ordemId || null);
+  const [numeroAtual, setNumeroAtual] = useState(numeroOS || d.numero_os || null);
+
   // ---- Janela 1: Endereço / Contato
   const [nomeCliente, setNomeCliente] = useState(d.nome_cliente || '');
   const [enderecoRua, setEnderecoRua] = useState(d.endereco_rua || '');
@@ -108,70 +113,150 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
   const marcaFinal = marca === 'Outra' ? marcaLivre : marca;
   const modeloFinal = modelo === 'Outro modelo' ? modeloLivre : modelo;
 
+  // Salva a OS INTEIRA (todos os campos de todas as janelas). Retorna o id.
+  // Usado tanto pelo botão "Salvar" de cada janela quanto pelo "Finalizar".
+  const salvarTudo = async () => {
+    // Se for uma OS nova (sem id), gerar o número LOCAL agora.
+    let idOS = idAtual || ordemId;
+    let numeroFinal = numeroAtual || numeroOS;
+    if (!idOS) {
+      const gerada = await api.post(`/api/os/gerar-numero?cliente_id=${clienteId}`);
+      idOS = gerada.ordem_id;
+      numeroFinal = gerada.numero_os;
+      setIdAtual(idOS);
+      setNumeroAtual(numeroFinal);
+    }
+
+    // 1) Salvar campos gerais (endereço, produto, problema, orçamento)
+    const payload = {
+      produto_tipo: produtoTipo,
+      produto_descricao: produtoTipo === 'outro' ? produtoDescricao : null,
+      marca: produtoTipo === 'celular' ? marcaFinal : null,
+      modelo: produtoTipo === 'celular' ? modeloFinal : null,
+      imei: produtoTipo === 'celular' ? imei : null,
+      nome_cliente: nomeCliente,
+      endereco_rua: enderecoRua,
+      endereco_tipo: enderecoTipo,
+      endereco_complemento: enderecoComplemento,
+      endereco_numero: enderecoNumero,
+      bairro: bairro,
+      cidade_os: cidade,
+      telefone_contato: telefone,
+      problema_descricao: problema,
+      valor_aprovado_estimado: centavosParaNumero(valorAprovadoCent),
+      valor_aprovado_parcelas: parseInt(parcelasAprovado, 10) || 1,
+      valor_total_estimado: centavosParaNumero(valorTotalCent),
+      valor_total_parcelas: parseInt(parcelasTotal, 10) || 1,
+    };
+    await api.put(`/api/os/${idOS}/completo`, payload);
+
+    // 2) Salvar senha
+    if (senhaTipo === 'pin' && senhaPin) {
+      await api.post(`/api/os/${idOS}/senhas`, { tipo: 'pin', valor: senhaPin });
+    } else if (senhaTipo === 'padrao' && patternData) {
+      await api.post(`/api/os/${idOS}/senhas/pattern`, {
+        pattern: patternData.pattern,
+        sequence: patternData.sequence,
+        duracao_ms: patternData.duration,
+        dispositivo: { tipo: 'browser', navegador: navigator.userAgent, resolucao: `${window.innerWidth}x${window.innerHeight}` },
+        timestamp: patternData.timestamp,
+      });
+    } else if (senhaTipo === 'nenhuma') {
+      await api.post(`/api/os/${idOS}/senhas`, { tipo: 'nenhuma' });
+    }
+
+    // 3) Salvar assinatura
+    if (assinatura) {
+      await api.post(`/api/os/${idOS}/assinatura`, { assinatura });
+    }
+
+    return { idOS, numeroFinal };
+  };
+
+  // Botão "Salvar" de cada janela: salva a OS inteira e permanece no assistente
+  const salvarPagina = async () => {
+    setSalvando(true);
+    try {
+      const { idOS, numeroFinal } = await salvarTudo();
+      flash && flash('success', `OS ${numeroFinal || idOS} salva!`);
+    } catch (e) {
+      flash && flash('danger', `Erro ao salvar: ${e.response?.data?.detail || e.message}`);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const finalizar = async () => {
     setSalvando(true);
     try {
-      // 0) Se for uma OS nova (sem id), gerar o número LOCAL agora.
-      //    O número é sequencial local; a sincronização com o servidor
-      //    remoto (IP + pasta) acontece depois, no final do programa.
-      let idOS = ordemId;
-      let numeroFinal = numeroOS;
-      if (!idOS) {
-        const gerada = await api.post(`/api/os/gerar-numero?cliente_id=${clienteId}`);
-        idOS = gerada.ordem_id;
-        numeroFinal = gerada.numero_os;
-      }
-
-      // 1) Salvar campos gerais (endereço, produto, problema)
-      const payload = {
-        produto_tipo: produtoTipo,
-        produto_descricao: produtoTipo === 'outro' ? produtoDescricao : null,
-        marca: produtoTipo === 'celular' ? marcaFinal : null,
-        modelo: produtoTipo === 'celular' ? modeloFinal : null,
-        imei: produtoTipo === 'celular' ? imei : null,
-        nome_cliente: nomeCliente,
-        endereco_rua: enderecoRua,
-        endereco_tipo: enderecoTipo,
-        endereco_complemento: enderecoComplemento,
-        endereco_numero: enderecoNumero,
-        bairro: bairro,
-        cidade_os: cidade,
-        telefone_contato: telefone,
-        problema_descricao: problema,
-        valor_aprovado_estimado: centavosParaNumero(valorAprovadoCent),
-        valor_aprovado_parcelas: parseInt(parcelasAprovado, 10) || 1,
-        valor_total_estimado: centavosParaNumero(valorTotalCent),
-        valor_total_parcelas: parseInt(parcelasTotal, 10) || 1,
-      };
-      await api.put(`/api/os/${idOS}/completo`, payload);
-
-      // 2) Salvar senha
-      if (senhaTipo === 'pin' && senhaPin) {
-        await api.post(`/api/os/${idOS}/senhas`, { tipo: 'pin', valor: senhaPin });
-      } else if (senhaTipo === 'padrao' && patternData) {
-        await api.post(`/api/os/${idOS}/senhas/pattern`, {
-          pattern: patternData.pattern,
-          sequence: patternData.sequence,
-          duracao_ms: patternData.duration,
-          dispositivo: { tipo: 'browser', navegador: navigator.userAgent, resolucao: `${window.innerWidth}x${window.innerHeight}` },
-          timestamp: patternData.timestamp,
-        });
-      } else if (senhaTipo === 'nenhuma') {
-        await api.post(`/api/os/${idOS}/senhas`, { tipo: 'nenhuma' });
-      }
-
-      // 3) Salvar assinatura
-      if (assinatura) {
-        await api.post(`/api/os/${idOS}/assinatura`, { assinatura });
-      }
-
-      flash && flash('success', `OS ${numeroFinal || idOS} salva com sucesso!`);
+      const { idOS } = await salvarTudo();
+      flash && flash('success', `OS ${numeroAtual || idOS} finalizada!`);
       onConcluir && onConcluir(idOS);
     } catch (e) {
       flash && flash('danger', `Erro ao salvar OS: ${e.response?.data?.detail || e.message}`);
     } finally {
       setSalvando(false);
     }
+  };
+
+  // ===== IMPRESSÃO POR JANELA =====
+  const capturaSenhaImg = () => {
+    const cv = document.querySelector('.pattern-canvas');
+    return cv ? `<div><b>Padrão:</b> ${patternData?.pattern || ''}</div><img src="${cv.toDataURL('image/png')}" />` : '';
+  };
+
+  const imprimirJanela = () => {
+    const sub = `OS ${numeroAtual || ''} — ${PASSOS[passo - 1]}`;
+    let html = '';
+    if (passo === 1) {
+      html = `<h2>Endereço e Contato</h2>` +
+        campo('Cliente', nomeCliente) + campo('Rua', enderecoRua) +
+        campo('Tipo', enderecoTipo) + campo('Número', enderecoNumero) +
+        campo('Complemento', enderecoComplemento) + campo('Bairro', bairro) +
+        campo('Cidade', cidade) + campo('Telefone', telefone);
+    } else if (passo === 2) {
+      html = `<h2>Produto</h2>` +
+        campo('Tipo', produtoTipo) + campo('Marca', marcaFinal) +
+        campo('Modelo', modeloFinal) + campo('IMEI', imei) +
+        campo('Descrição', produtoDescricao);
+    } else if (passo === 3) {
+      html = `<h2>Senha do Aparelho</h2>` + campo('Tipo', senhaTipo);
+      if (senhaTipo === 'pin') html += campo('PIN', senhaPin);
+      if (senhaTipo === 'padrao') html += capturaSenhaImg();
+    } else if (passo === 4) {
+      html = `<h2>Problema e Orçamento</h2>` +
+        campo('Problema', problema) +
+        campo('Valor aprovado', `R$ ${fmtBRL(centavosParaNumero(valorAprovadoCent))} em ${parcelasAprovado}x`) +
+        campo('Valor total estimado', `R$ ${fmtBRL(centavosParaNumero(valorTotalCent))} em ${parcelasTotal}x`);
+    } else if (passo === 5) {
+      html = `<h2>Assinatura do Cliente</h2>` +
+        (assinatura ? `<img src="${assinatura}" />` : '<p>(sem assinatura)</p>') +
+        `<div class="assinatura-linha">${nomeCliente || 'Cliente'}</div>`;
+    }
+    abrirImpressao(sub, html);
+  };
+
+  // Imprime a OS COMPLETA (todas as janelas)
+  const imprimirTudo = () => {
+    const sub = `OS ${numeroAtual || ''} — Completa`;
+    const html =
+      `<h2>Cliente e Endereço</h2>` +
+      campo('Cliente', nomeCliente) + campo('Rua', enderecoRua) + campo('Tipo', enderecoTipo) +
+      campo('Número', enderecoNumero) + campo('Complemento', enderecoComplemento) +
+      campo('Bairro', bairro) + campo('Cidade', cidade) + campo('Telefone', telefone) +
+      `<h2>Produto</h2>` +
+      campo('Tipo', produtoTipo) + campo('Marca', marcaFinal) + campo('Modelo', modeloFinal) +
+      campo('IMEI', imei) + campo('Descrição', produtoDescricao) +
+      `<h2>Senha</h2>` + campo('Tipo', senhaTipo) +
+      (senhaTipo === 'pin' ? campo('PIN', senhaPin) : (senhaTipo === 'padrao' ? capturaSenhaImg() : '')) +
+      `<h2>Problema e Orçamento</h2>` +
+      campo('Problema', problema) +
+      campo('Valor aprovado', `R$ ${fmtBRL(centavosParaNumero(valorAprovadoCent))} em ${parcelasAprovado}x`) +
+      campo('Valor total estimado', `R$ ${fmtBRL(centavosParaNumero(valorTotalCent))} em ${parcelasTotal}x`) +
+      `<h2>Assinatura</h2>` +
+      (assinatura ? `<img src="${assinatura}" />` : '<p>(sem assinatura)</p>') +
+      `<div class="assinatura-linha">${nomeCliente || 'Cliente'}</div>`;
+    abrirImpressao(sub, html);
   };
 
   const progresso = Math.round((passo / PASSOS.length) * 100);
@@ -463,8 +548,23 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
           </div>
         )}
 
-        {/* NAVEGAÇÃO */}
+        {/* AÇÕES DA JANELA: Salvar (salva a OS inteira) + Imprimir (só esta janela) */}
         <hr />
+        <div className="d-flex gap-2 flex-wrap mb-2">
+          <Button variant="success" onClick={salvarPagina} disabled={salvando}>
+            {salvando ? 'Salvando...' : '💾 Salvar'}
+          </Button>
+          <Button variant="outline-dark" onClick={imprimirJanela}>
+            🖨️ Imprimir esta janela
+          </Button>
+          {passo === PASSOS.length && (
+            <Button variant="dark" onClick={imprimirTudo}>
+              🖨️ Imprimir OS completa
+            </Button>
+          )}
+        </div>
+
+        {/* NAVEGAÇÃO */}
         <div className="d-flex justify-content-between">
           <Button variant="outline-secondary" onClick={onCancelar} disabled={salvando}>
             ✖️ Cancelar
@@ -482,7 +582,7 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
             )}
             {passo === PASSOS.length && (
               <Button variant="success" onClick={finalizar} disabled={salvando}>
-                {salvando ? 'Salvando...' : '💾 Finalizar e Salvar OS'}
+                {salvando ? 'Salvando...' : '✅ Finalizar'}
               </Button>
             )}
           </div>
