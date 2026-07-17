@@ -49,7 +49,7 @@ function App() {
     <Router>
       <div className="App">
         {/* Navbar */}
-        <Navbar bg="dark" expand="lg" sticky="top">
+        <Navbar bg="dark" variant="dark" expand="lg" sticky="top">
           <Container>
             <Navbar.Brand href="/">
               💼 Loja de Informática
