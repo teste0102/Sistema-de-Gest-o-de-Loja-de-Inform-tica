@@ -67,6 +67,16 @@ def ssh_status():
     return {"ok": True, "ssh_disponivel": PARAMIKO_OK}
 
 
+class DescobrirRede(BaseModel):
+    base: str  # ex.: "192.168.0"
+
+
+@router.post("/mdb/rede/descobrir", response_model=Dict)
+def descobrir_rede(req: DescobrirRede):
+    """Varre a rede local procurando hosts com SSH (22) ou compartilhamento (445)."""
+    return SshMdbService.descobrir_rede(req.base)
+
+
 @router.post("/mdb/ssh/escanear", response_model=Dict)
 def ssh_escanear(conn: SshConn):
     """Lista .mdb e subpastas de um servidor remoto via SSH/SFTP."""

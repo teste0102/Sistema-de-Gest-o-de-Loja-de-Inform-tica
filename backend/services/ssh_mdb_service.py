@@ -8,9 +8,11 @@ import os
 import csv
 import io
 import stat
+import socket
 import tempfile
 import subprocess
-from typing import Dict
+import concurrent.futures
+from typing import Dict, List
 
 try:
     import paramiko
@@ -21,6 +23,56 @@ except Exception:
 
 class SshMdbService:
     """Acessa .mdb remotos via SFTP."""
+
+    @staticmethod
+    def descobrir_rede(base: str, portas: List[int] = None) -> Dict:
+        """
+        Varre uma faixa da rede (base.1 a base.254) procurando hosts com
+        portas abertas (SSH=22, compartilhamento Windows=445, RDP=3389).
+
+        Args:
+            base: prefixo da rede, ex.: "192.168.0"
+            portas: portas a testar (padrão: 22 e 445)
+
+        Returns:
+            Dict com lista de hosts encontrados e portas abertas
+        """
+        base = (base or "").strip().rstrip(".")
+        # aceitar tanto "192.168.0" quanto "192.168.0.0"
+        partes = base.split(".")
+        if len(partes) == 4:
+            partes = partes[:3]
+        if len(partes) != 3 or not all(p.isdigit() for p in partes):
+            return {"ok": False, "erro": "Faixa inválida. Use algo como 192.168.0"}
+        base3 = ".".join(partes)
+        portas = portas or [22, 445]
+
+        def checar(ip):
+            abertas = []
+            for p in portas:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(0.4)
+                try:
+                    if s.connect_ex((ip, p)) == 0:
+                        abertas.append(p)
+                except Exception:
+                    pass
+                finally:
+                    s.close()
+            return (ip, abertas)
+
+        ips = [f"{base3}.{i}" for i in range(1, 255)]
+        encontrados = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=120) as ex:
+            for ip, abertas in ex.map(checar, ips):
+                if abertas:
+                    encontrados.append({
+                        "ip": ip,
+                        "portas": abertas,
+                        "ssh": 22 in abertas,
+                        "compartilhamento": 445 in abertas,
+                    })
+        return {"ok": True, "base": base3, "total": len(encontrados), "hosts": encontrados}
 
     @staticmethod
     def _conectar(host: str, porta: int, usuario: str, senha: str):

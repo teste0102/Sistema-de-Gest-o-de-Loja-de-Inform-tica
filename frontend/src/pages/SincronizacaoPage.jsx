@@ -25,6 +25,9 @@ export default function SincronizacaoPage() {
 
   // Conexão SSH / Rede
   const [ssh, setSsh] = useState({ host: '', porta: 22, usuario: '', senha: '', caminho: '.' });
+  const [redeBase, setRedeBase] = useState('192.168.0');
+  const [redeHosts, setRedeHosts] = useState(null);
+  const [escaneandoRede, setEscaneandoRede] = useState(false);
 
   useEffect(() => {
     carregarTudo();
@@ -81,6 +84,25 @@ export default function SincronizacaoPage() {
       flash('danger', `Erro no preview: ${e.response?.data?.detail || e.message}`);
     } finally {
       setCarregandoMdb(false);
+    }
+  };
+
+  // ===== Descoberta de rede (procura IPs com SSH/compartilhamento) =====
+  const escanearRede = async () => {
+    try {
+      setEscaneandoRede(true);
+      setRedeHosts(null);
+      const res = await api.post('/api/sync/mdb/rede/descobrir', { base: redeBase });
+      if (res.ok) {
+        setRedeHosts(res.hosts || []);
+        if (!res.hosts || res.hosts.length === 0) flash('warning', `Nenhum host encontrado em ${res.base}.x`);
+      } else {
+        flash('danger', res.erro || 'Falha ao escanear a rede');
+      }
+    } catch (e) {
+      flash('danger', `Erro ao escanear rede: ${e.response?.data?.detail || e.message}`);
+    } finally {
+      setEscaneandoRede(false);
     }
   };
 
@@ -257,6 +279,39 @@ export default function SincronizacaoPage() {
           {/* MODO SSH / REDE */}
           {modoSync === 'ssh' && (
             <div className="mb-3">
+              {/* Passo 1: escanear a rede procurando IPs */}
+              <div className="p-2 mb-3" style={{ background: '#f0f7ff', borderRadius: 6 }}>
+                <div className="small fw-bold mb-2">1️⃣ Procurar máquinas na rede</div>
+                <Row className="g-2 align-items-end">
+                  <Col md={6}>
+                    <Form.Label className="small mb-1">Faixa da rede (os 3 primeiros números do seu IP)</Form.Label>
+                    <Form.Control value={redeBase} onChange={(e) => setRedeBase(e.target.value)} placeholder="Ex.: 192.168.0" />
+                  </Col>
+                  <Col md={6}>
+                    <Button variant="info" className="w-100" onClick={escanearRede} disabled={escaneandoRede}>
+                      {escaneandoRede ? <Spinner size="sm" /> : '🔎 Escanear Rede'}
+                    </Button>
+                  </Col>
+                </Row>
+                <small className="text-muted">Dica: no Windows, veja seu IP com <code>ipconfig</code> (ex.: 192.168.0.15 → digite 192.168.0).</small>
+
+                {redeHosts && redeHosts.length > 0 && (
+                  <div className="mt-2">
+                    <div className="small fw-bold">Máquinas encontradas ({redeHosts.length}) — clique para usar:</div>
+                    <div className="d-flex flex-wrap gap-1 mt-1">
+                      {redeHosts.map((h) => (
+                        <Button key={h.ip} size="sm"
+                          variant={ssh.host === h.ip ? 'primary' : 'outline-primary'}
+                          onClick={() => setSsh({ ...ssh, host: h.ip })}>
+                          🖥️ {h.ip} {h.ssh ? '🔑SSH' : ''} {h.compartilhamento ? '📁' : ''}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="small fw-bold mb-2">2️⃣ Conectar (IP escolhido + usuário e senha)</div>
               <Row className="g-2">
                 <Col md={5}>
                   <Form.Control placeholder="Host / IP (ex.: 192.168.0.10)" value={ssh.host}
