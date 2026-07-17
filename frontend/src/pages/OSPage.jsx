@@ -90,8 +90,25 @@ export default function OSPage() {
       setOrdemAtiva(res);
       setWizardDados(res);
       setMostrarWizard(true);
+      // Rola até o topo para o assistente ficar visível
+      setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+      flash('info', 'Modo alteração aberto — edite e clique em Finalizar.');
     } catch (e) {
       flash('danger', `Erro ao abrir alteração: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  // Alterna o status da OS (aberta <-> fechada)
+  const alternarStatus = async () => {
+    if (!ordemId) return;
+    const fechada = String(ordemAtiva?.status || '').toLowerCase().startsWith('fech');
+    const novo = fechada ? 'aberta' : 'fechada';
+    try {
+      await api.put(`/api/os/${ordemId}/completo`, { status: novo });
+      flash('success', `OS marcada como ${novo.toUpperCase()}`);
+      carregarOS();
+    } catch (e) {
+      flash('danger', `Erro ao mudar status: ${e.response?.data?.detail || e.message}`);
     }
   };
 
@@ -407,9 +424,14 @@ export default function OSPage() {
                     {fechada ? 'Fechada' : 'Aberta'}
                   </Badge>
                 </h5>
-                <Button variant="warning" onClick={abrirAlterar}>
-                  ✏️ Alterar
-                </Button>
+                <div className="d-flex gap-2">
+                  <Button variant={fechada ? 'outline-danger' : 'outline-primary'} onClick={alternarStatus}>
+                    {fechada ? '🔓 Reabrir OS' : '🔒 Fechar OS'}
+                  </Button>
+                  <Button variant="warning" onClick={abrirAlterar}>
+                    ✏️ Alterar
+                  </Button>
+                </div>
               </div>
 
               {/* Resumo dos dados cadastrados */}

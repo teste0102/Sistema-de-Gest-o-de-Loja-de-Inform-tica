@@ -369,7 +369,15 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
                 <div className="d-flex gap-2 flex-wrap justify-content-center mt-1">
                   {patternData && (
                     <>
-                      <Button size="sm" variant="info" onClick={() => setReplaySignal((s) => s + 1)}>
+                      <Button
+                        size="sm"
+                        variant="info"
+                        onClick={() => {
+                          // Usa o patternData (persiste mesmo após trocar de janela e voltar)
+                          setReplaySavedData({ pattern: patternData.pattern, sequence: patternData.sequence });
+                          setReplaySignal((s) => s + 1);
+                        }}
+                      >
                         ▶️ Ver Replay
                       </Button>
                       <Button
