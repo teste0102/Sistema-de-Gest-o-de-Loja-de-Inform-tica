@@ -14,6 +14,7 @@ export default function SincronizacaoPage() {
   const [chaveApi, setChaveApi] = useState('');
 
   // Scanner de arquivos Access (.mdb)
+  const [modoSync, setModoSync] = useState('local'); // 'local' | 'ssh'
   const [mdbStatus, setMdbStatus] = useState(null);
   const [subpasta, setSubpasta] = useState('');
   const [scan, setScan] = useState(null);
@@ -21,6 +22,9 @@ export default function SincronizacaoPage() {
   const [arquivoSel, setArquivoSel] = useState(null);
   const [preview, setPreview] = useState(null);
   const [carregandoMdb, setCarregandoMdb] = useState(false);
+
+  // Conexão SSH / Rede
+  const [ssh, setSsh] = useState({ host: '', porta: 22, usuario: '', senha: '', caminho: '.' });
 
   useEffect(() => {
     carregarTudo();
@@ -79,6 +83,58 @@ export default function SincronizacaoPage() {
       setCarregandoMdb(false);
     }
   };
+
+  // ===== SSH / Rede =====
+  const escanearSsh = async (caminho) => {
+    const alvo = caminho !== undefined ? caminho : ssh.caminho;
+    try {
+      setCarregandoMdb(true);
+      setTabelas(null); setPreview(null); setArquivoSel(null);
+      const res = await api.post('/api/sync/mdb/ssh/escanear', { ...ssh, caminho: alvo });
+      setScan(res);
+      setSsh((s) => ({ ...s, caminho: alvo }));
+      if (!res.ok) flash('danger', res.erro || 'Falha ao escanear via SSH');
+    } catch (e) {
+      flash('danger', `Erro SSH: ${e.response?.data?.detail || e.message}`);
+    } finally {
+      setCarregandoMdb(false);
+    }
+  };
+
+  const abrirTabelasSsh = async (arquivoNome) => {
+    try {
+      setCarregandoMdb(true);
+      setPreview(null);
+      setArquivoSel(arquivoNome);
+      const res = await api.post('/api/sync/mdb/ssh/tabelas', { ...ssh, arquivo: arquivoNome });
+      setTabelas(res);
+      if (!res.ok) flash('warning', res.erro);
+    } catch (e) {
+      flash('danger', `Erro SSH tabelas: ${e.response?.data?.detail || e.message}`);
+    } finally {
+      setCarregandoMdb(false);
+    }
+  };
+
+  const verPreviewSsh = async (tabela) => {
+    try {
+      setCarregandoMdb(true);
+      const res = await api.post('/api/sync/mdb/ssh/preview', { ...ssh, arquivo: arquivoSel, tabela });
+      setPreview(res);
+      if (!res.ok) flash('warning', res.erro);
+    } catch (e) {
+      flash('danger', `Erro SSH preview: ${e.response?.data?.detail || e.message}`);
+    } finally {
+      setCarregandoMdb(false);
+    }
+  };
+
+  // Handlers unificados (chamam local ou ssh conforme o modo)
+  const doTabelas = (arq) => (modoSync === 'ssh' ? abrirTabelasSsh(arq) : abrirTabelas(arq));
+  const doPreview = (tab) => (modoSync === 'ssh' ? verPreviewSsh(tab) : verPreview(tab));
+  const doEntrarPasta = (sp) => (modoSync === 'ssh'
+    ? escanearSsh(ssh.caminho === '.' ? sp : `${ssh.caminho}/${sp}`)
+    : escanear(subpasta ? `${subpasta}/${sp}` : sp));
 
   const flash = (variant, texto) => {
     setMsg({ variant, texto });
@@ -155,25 +211,82 @@ export default function SincronizacaoPage() {
               <Badge bg="success">✅ Leitor .mdb ativo</Badge>
             ) : (
               <Badge bg="danger">❌ Leitor .mdb indisponível</Badge>
-            )}{' '}
-            <span className="text-muted">
-              Pasta montada no servidor: <code>{mdbStatus?.mdb_dir || '/dados_mdb'}</code>
-            </span>
-          </div>
-
-          <Alert variant="light" className="small">
-            Para apontar a pasta da rede: defina <code>MDB_PATH</code> no arquivo <code>.env</code> (ex.:
-            <code> MDB_PATH=C:\Users\User\Desktop\Informatica2023</code> ou uma pasta de rede mapeada) e reconstrua o backend.
-          </Alert>
-
-          <div className="d-flex gap-2 mb-3 flex-wrap">
-            <Button variant="primary" onClick={() => escanear('')} disabled={carregandoMdb}>
-              {carregandoMdb ? <Spinner size="sm" /> : '🔍 Escanear Pasta'}
-            </Button>
-            {subpasta && (
-              <Button variant="outline-secondary" onClick={() => escanear('')}>⬆️ Voltar à raiz</Button>
             )}
           </div>
+
+          {/* Seletor de modo: Local x SSH/Rede */}
+          <div className="d-flex gap-2 mb-3">
+            <Button
+              variant={modoSync === 'local' ? 'primary' : 'outline-primary'}
+              onClick={() => { setModoSync('local'); setScan(null); setTabelas(null); setPreview(null); }}
+            >
+              💻 Pasta Local
+            </Button>
+            <Button
+              variant={modoSync === 'ssh' ? 'primary' : 'outline-primary'}
+              onClick={() => { setModoSync('ssh'); setScan(null); setTabelas(null); setPreview(null); }}
+            >
+              🌐 Servidor SSH / Rede
+            </Button>
+          </div>
+
+          {/* MODO LOCAL */}
+          {modoSync === 'local' && (
+            <div className="mb-3">
+              <Form.Label className="small text-muted">
+                Pasta montada no servidor: <code>{mdbStatus?.mdb_dir || '/dados_mdb'}</code>{' '}
+                (aponte com <code>MDB_PATH</code> no <code>.env</code>, ex.: <code>MDB_PATH=C:/Users/User/Desktop/Informatica2023</code>)
+              </Form.Label>
+              <Row className="g-2">
+                <Col md={8}>
+                  <Form.Control
+                    placeholder="Subpasta (opcional). Ex.: Backup 02.01.2026 — vazio = raiz"
+                    value={subpasta}
+                    onChange={(e) => setSubpasta(e.target.value)}
+                  />
+                </Col>
+                <Col md={4}>
+                  <Button variant="primary" className="w-100" onClick={() => escanear(subpasta)} disabled={carregandoMdb}>
+                    {carregandoMdb ? <Spinner size="sm" /> : '🔍 Escanear'}
+                  </Button>
+                </Col>
+              </Row>
+            </div>
+          )}
+
+          {/* MODO SSH / REDE */}
+          {modoSync === 'ssh' && (
+            <div className="mb-3">
+              <Row className="g-2">
+                <Col md={5}>
+                  <Form.Control placeholder="Host / IP (ex.: 192.168.0.10)" value={ssh.host}
+                    onChange={(e) => setSsh({ ...ssh, host: e.target.value })} />
+                </Col>
+                <Col md={2}>
+                  <Form.Control type="number" placeholder="Porta" value={ssh.porta}
+                    onChange={(e) => setSsh({ ...ssh, porta: e.target.value })} />
+                </Col>
+                <Col md={5}>
+                  <Form.Control placeholder="Usuário" value={ssh.usuario}
+                    onChange={(e) => setSsh({ ...ssh, usuario: e.target.value })} />
+                </Col>
+                <Col md={5}>
+                  <Form.Control type="password" placeholder="Senha" value={ssh.senha}
+                    onChange={(e) => setSsh({ ...ssh, senha: e.target.value })} />
+                </Col>
+                <Col md={5}>
+                  <Form.Control placeholder="Caminho remoto (ex.: /home/user/Informatica2023 ou . )" value={ssh.caminho}
+                    onChange={(e) => setSsh({ ...ssh, caminho: e.target.value })} />
+                </Col>
+                <Col md={2}>
+                  <Button variant="primary" className="w-100" onClick={() => escanearSsh()} disabled={carregandoMdb}>
+                    {carregandoMdb ? <Spinner size="sm" /> : '🔍 Conectar'}
+                  </Button>
+                </Col>
+              </Row>
+              <small className="text-muted">Conecta via SSH/SFTP e baixa os .mdb temporariamente para leitura. Funciona em qualquer rede.</small>
+            </div>
+          )}
 
           {scan?.ok && (
             <Row>
@@ -184,7 +297,7 @@ export default function SincronizacaoPage() {
                   <div className="mb-2">
                     {scan.subpastas.map((sp) => (
                       <Button key={sp} size="sm" variant="outline-secondary" className="me-1 mb-1"
-                        onClick={() => escanear(subpasta ? `${subpasta}/${sp}` : sp)}>
+                        onClick={() => doEntrarPasta(sp)}>
                         📁 {sp}
                       </Button>
                     ))}
@@ -198,7 +311,7 @@ export default function SincronizacaoPage() {
                         <tr key={a.nome}>
                           <td>{a.nome} <small className="text-muted">({Math.round(a.tamanho/1024)} KB)</small></td>
                           <td>
-                            <Button size="sm" variant="outline-primary" onClick={() => abrirTabelas(a.nome)}>
+                            <Button size="sm" variant="outline-primary" onClick={() => doTabelas(a.nome)}>
                               ver tabelas
                             </Button>
                           </td>
@@ -217,7 +330,7 @@ export default function SincronizacaoPage() {
                     <div style={{ maxHeight: 300, overflowY: 'auto' }}>
                       {tabelas.tabelas.map((t) => (
                         <Button key={t} size="sm" variant="outline-info" className="d-block w-100 mb-1 text-start"
-                          onClick={() => verPreview(t)}>
+                          onClick={() => doPreview(t)}>
                           {t}
                         </Button>
                       ))}
