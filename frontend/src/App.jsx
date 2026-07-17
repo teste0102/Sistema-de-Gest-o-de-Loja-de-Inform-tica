@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Container, Navbar, Nav, Alert } from 'react-bootstrap';
+import { Container, Navbar, Nav, Alert, Button } from 'react-bootstrap';
 import './App.css';
 
 // Páginas
@@ -10,10 +10,19 @@ import OrdensPage from './pages/OrdensPage';
 import FinanceiroPage from './pages/FinanceiroPage';
 import OSPage from './pages/OSPage';
 import SincronizacaoPage from './pages/SincronizacaoPage';
+import LoginPage from './pages/LoginPage';
 
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [apiStatus, setApiStatus] = useState('checking');
+  const [auth, setAuth] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('loja_auth')); } catch { return null; }
+  });
+
+  const sair = () => {
+    localStorage.removeItem('loja_auth');
+    setAuth(null);
+  };
 
   useEffect(() => {
     // Detectar conexão online/offline
@@ -45,6 +54,11 @@ function App() {
     }
   };
 
+  // Se não estiver logado, mostra a tela de login
+  if (!auth) {
+    return <LoginPage onLogin={setAuth} />;
+  }
+
   return (
     <Router>
       <div className="App">
@@ -64,10 +78,12 @@ function App() {
                 <Nav.Link href="/financeiro">Financeiro</Nav.Link>
                 <Nav.Link href="/sincronizacao">Sincronização</Nav.Link>
               </Nav>
-              <div className="ms-3">
+              <div className="ms-3 d-flex align-items-center gap-2">
                 <span className={`badge ${isOnline ? 'bg-success' : 'bg-danger'}`}>
                   {isOnline ? '🟢 Online' : '🔴 Offline'}
                 </span>
+                <span className="text-light small">👤 {auth?.nome || auth?.usuario}</span>
+                <Button size="sm" variant="outline-light" onClick={sair}>Sair</Button>
               </div>
             </Navbar.Collapse>
           </Container>

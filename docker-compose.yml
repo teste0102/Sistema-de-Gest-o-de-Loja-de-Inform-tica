@@ -45,11 +45,17 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/loja_informatica
+      MDB_DIR: /dados_mdb
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - loja_network
+    volumes:
+      # Pasta dos arquivos Access (.mdb) do sistema antigo, somente leitura.
+      # Defina MDB_PATH no .env (ex.: MDB_PATH=C:\Users\User\Desktop\Informatica2023
+      # ou uma pasta de rede mapeada). Padrão: ./mdb_data
+      - "${MDB_PATH:-./mdb_data}:/dados_mdb:ro"
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   # React Frontend

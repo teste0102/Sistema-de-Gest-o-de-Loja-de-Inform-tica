@@ -178,6 +178,17 @@ class ServidorRemoto(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class Usuario(Base):
+    """Usuários do sistema (login)"""
+    __tablename__ = "usuarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario = Column(String(60), unique=True, nullable=False, index=True)
+    senha_hash = Column(String(255), nullable=False)
+    nome = Column(String(120))
+    ativo = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class AuditLog(Base):
     """Log de auditoria de todas operações"""
     __tablename__ = "audit_log"

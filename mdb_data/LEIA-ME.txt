@@ -1,0 +1,1 @@
+Coloque aqui os arquivos .mdb OU aponte MDB_PATH no .env para a pasta real (rede).

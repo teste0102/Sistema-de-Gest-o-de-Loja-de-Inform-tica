@@ -7,16 +7,35 @@ Idempotente: só cria se não existir nada.
 import logging
 from datetime import datetime, date
 
+import hashlib
+
 from database import SessionLocal
-from models import Cliente, OrdemServico, Lancamento
+from models import Cliente, OrdemServico, Lancamento, Usuario
 
 logger = logging.getLogger(__name__)
+
+
+def hash_senha(senha: str) -> str:
+    """Hash simples da senha (SHA-256)."""
+    return hashlib.sha256(senha.encode("utf-8")).hexdigest()
 
 
 def seed_dados_iniciais():
     """Popula dados de exemplo se o banco estiver vazio."""
     db = SessionLocal()
     try:
+        # ===== USUÁRIO ADMIN PADRÃO =====
+        usuario = db.query(Usuario).first()
+        if not usuario:
+            admin = Usuario(
+                usuario="admin",
+                senha_hash=hash_senha("admin"),
+                nome="Administrador",
+                ativo=True,
+            )
+            db.add(admin)
+            db.commit()
+            logger.info("🌱 Usuário admin criado (login: admin / senha: admin)")
         # ===== CLIENTE EXEMPLO =====
         cliente = db.query(Cliente).first()
         if not cliente:
