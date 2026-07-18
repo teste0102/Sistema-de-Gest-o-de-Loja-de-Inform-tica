@@ -56,12 +56,16 @@ def run_auto_migrations():
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS valor_total_estimado DOUBLE PRECISION DEFAULT 0.0",
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS valor_total_parcelas INTEGER DEFAULT 1",
     ]
-    with engine.begin() as conn:
-        for sql in alteracoes:
-            try:
+    # IMPORTANTE: cada ALTER em sua PRÓPRIA transação. No PostgreSQL, se um
+    # statement falha dentro de uma transação, todos os seguintes falham
+    # ("current transaction is aborted"). Commit por statement evita isso.
+    for sql in alteracoes:
+        try:
+            with engine.connect() as conn:
                 conn.execute(text(sql))
-            except Exception as e:
-                print(f"⚠️  Auto-migration ignorada ({sql[:60]}...): {e}")
+                conn.commit()
+        except Exception as e:
+            print(f"⚠️  Auto-migration ignorada ({sql[:60]}...): {e}")
     print("✅ Auto-migrations aplicadas!")
 
 

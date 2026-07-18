@@ -41,6 +41,25 @@ def status_mdb():
     }
 
 
+@router.get("/diag/colunas-os", response_model=Dict)
+def diag_colunas_os():
+    """Diagnóstico: lista as colunas da tabela ordens_servico e força a migração."""
+    from database import run_auto_migrations, engine
+    from sqlalchemy import inspect
+    try:
+        run_auto_migrations()  # garante as colunas
+        insp = inspect(engine)
+        colunas = [c["name"] for c in insp.get_columns("ordens_servico")]
+        esperadas = [
+            "nome_cliente", "produto_tipo", "endereco_rua", "problema_descricao",
+            "valor_aprovado_estimado", "valor_total_estimado", "assinatura_cliente",
+        ]
+        faltando = [c for c in esperadas if c not in colunas]
+        return {"ok": True, "total_colunas": len(colunas), "colunas": colunas, "faltando": faltando}
+    except Exception as e:
+        return {"ok": False, "erro": str(e)}
+
+
 @router.get("/mdb/escanear", response_model=Dict)
 def escanear(subpasta: str = ""):
     """Lista os arquivos .mdb e subpastas dentro da pasta montada."""

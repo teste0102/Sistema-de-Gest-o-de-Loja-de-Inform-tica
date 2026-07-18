@@ -41,7 +41,7 @@ class APIClient {
       const config = {
         method,
         url,
-        timeout: 5000,
+        timeout: 20000,
       };
 
       if (data) {
