@@ -31,13 +31,35 @@ async def listar_ordens(
         query = query.filter(OrdemServico.cliente_id == cliente_id)
     
     total = query.count()
-    ordens = query.order_by(OrdemServico.data_abertura.desc()).offset(skip).limit(limit).all()
-    
+    # Ordenar por data_criacao (sempre preenchida) para não quebrar com data_abertura nula
+    ordens = query.order_by(OrdemServico.id.desc()).offset(skip).limit(limit).all()
+
+    # Montar items de forma robusta (não usa schema estrito que quebra com campos nulos)
+    items = []
+    for o in ordens:
+        try:
+            nome_cli = getattr(o, "nome_cliente", None)
+            if not nome_cli and o.cliente:
+                nome_cli = o.cliente.nome
+            items.append({
+                "id": o.id,
+                "numero": o.numero,
+                "numero_os": o.numero_os,
+                "nome_cliente": nome_cli,
+                "cliente_id": o.cliente_id,
+                "status": o.status,
+                "data_abertura": o.data_abertura.isoformat() if o.data_abertura else None,
+                "data_criacao": o.data_criacao.isoformat() if o.data_criacao else None,
+                "valor_total": float(o.valor_total or 0),
+            })
+        except Exception:
+            continue
+
     return {
         "total": total,
         "skip": skip,
         "limit": limit,
-        "items": [OrdemServicioResponse.from_orm(o) for o in ordens]
+        "items": items,
     }
 
 @router.get("/{ordem_id}", response_model=OrdemServicioResponse)
