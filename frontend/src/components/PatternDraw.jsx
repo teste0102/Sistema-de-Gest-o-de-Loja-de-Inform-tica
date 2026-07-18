@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import './PatternDraw.css';
 
-const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null, replaySignal = 0 }) => {
+const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null, replaySignal = 0, patternInicial = null }) => {
+  const aplicouInicial = useRef(false);
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [connectedDots, setConnectedDots] = useState([]);
@@ -38,6 +39,17 @@ const PatternDraw = ({ onPatternComplete, onReplay = false, replayData = null, r
       drawPattern(canvas, dots, connectedDots);
     }
   }, [connectedDots, dots]);
+
+  // Desenhar automaticamente o padrão SALVO ao abrir (modo edição) — sem clicar
+  useEffect(() => {
+    if (patternInicial && dots.length > 0 && !aplicouInicial.current) {
+      const arr = String(patternInicial).split('-').map(Number).filter((n) => !isNaN(n));
+      if (arr.length > 0) {
+        aplicouInicial.current = true;
+        setConnectedDots(arr);
+      }
+    }
+  }, [patternInicial, dots]);
 
   // Auto-replay if replayData provided
   useEffect(() => {

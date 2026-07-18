@@ -454,6 +454,7 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
                   onPatternComplete={(p) => setPatternData(p)}
                   replayData={replaySavedData}
                   replaySignal={replaySignal}
+                  patternInicial={d.senha_pattern || null}
                 />
 
                 {/* Botões logo abaixo das bolinhas */}
