@@ -86,11 +86,15 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
   const [imei, setImei] = useState(d.imei || '');
   const [produtoDescricao, setProdutoDescricao] = useState(d.produto_descricao || '');
 
-  // ---- Janela 3: Senha
-  const [senhaTipo, setSenhaTipo] = useState('pin');
-  const [senhaPin, setSenhaPin] = useState('');
+  // ---- Janela 3: Senha (pré-carrega o que foi salvo, para poder editar)
+  const [senhaTipo, setSenhaTipo] = useState(d.senha_tipo || 'pin');
+  const [senhaPin, setSenhaPin] = useState(d.senha_pin || '');
   const [mostrarPattern, setMostrarPattern] = useState(false);
-  const [patternData, setPatternData] = useState(null);
+  const [patternData, setPatternData] = useState(
+    d.senha_pattern
+      ? { pattern: d.senha_pattern, sequence: [], dotCount: String(d.senha_pattern).split('-').length }
+      : null
+  );
 
   // ---- Janela 4: Problema + Orçamento
   const [problema, setProblema] = useState(d.problema_descricao || '');
@@ -153,7 +157,9 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
     // 2) Salvar senha
     if (senhaTipo === 'pin' && senhaPin) {
       await api.post(`/api/os/${idOS}/senhas`, { tipo: 'pin', valor: senhaPin });
-    } else if (senhaTipo === 'padrao' && patternData) {
+    } else if (senhaTipo === 'padrao' && patternData && patternData.sequence && patternData.sequence.length > 0) {
+      // Só re-salva o padrão se foi DESENHADO agora (tem sequência).
+      // Se veio do banco (edição sem redesenhar), mantém o que já está salvo.
       await api.post(`/api/os/${idOS}/senhas/pattern`, {
         pattern: patternData.pattern,
         sequence: patternData.sequence,

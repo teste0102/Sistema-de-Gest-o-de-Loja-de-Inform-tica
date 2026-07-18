@@ -260,6 +260,21 @@ def obter_os_por_id(
             fotos_lista = _json.loads(fotos_lista)
         total_fotos = len(fotos_lista)
 
+        # Recuperar a SENHA salva para exibir na edição (ferramenta interna da loja)
+        senha_pin = None
+        senha_pattern = None
+        try:
+            if ordem.senha_tipo == "pin" and ordem.senha_cifrada:
+                from services.senha_service import SenhaService
+                from utils.crypto_service import CryptoService
+                senha_pin = SenhaService(CryptoService()).descriptografar_pin(ordem.senha_cifrada)
+            elif ordem.senha_tipo == "padrao" and ordem.senha_imagem:
+                import json as _json
+                info = _json.loads(ordem.senha_imagem)
+                senha_pattern = info.get("pattern")
+        except Exception:
+            pass
+
         return {
             "ok": True,
             "id": ordem.id,
@@ -271,6 +286,10 @@ def obter_os_por_id(
             "total_fotos": total_fotos,
             "tem_laudo": ordem.laudo_assinatura_digital is not None,
             "tem_replay": ordem.replay_dados is not None,
+            # Senha (para edição)
+            "senha_tipo": ordem.senha_tipo,
+            "senha_pin": senha_pin,
+            "senha_pattern": senha_pattern,
             # Produto
             "produto_tipo": ordem.produto_tipo,
             "produto_descricao": ordem.produto_descricao,

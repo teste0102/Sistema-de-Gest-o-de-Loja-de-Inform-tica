@@ -17,20 +17,34 @@ import json
 class CryptoService:
     """Serviço centralizado de criptografia"""
 
+    # Chave FIXA padrão (interna), derivada de forma determinística de uma frase.
+    # Usada quando não há CRYPTO_KEY no ambiente. Precisa ser estável entre
+    # reinícios/instâncias, senão o que é criptografado (ex.: PIN) não pode ser
+    # descriptografado depois. É uma chave Fernet válida (32 bytes base64).
+    _CHAVE_PADRAO = base64.urlsafe_b64encode(
+        hashlib.sha256(b"loja-informatica-chave-fixa-interna").digest()
+    ).decode()
+
     def __init__(self, chave_secreta: Optional[str] = None):
         """
-        Inicializa o serviço de criptografia
+        Inicializa o serviço de criptografia.
 
-        Args:
-            chave_secreta: Chave Fernet para AES (se None, gera nova)
+        Ordem da chave AES:
+        1) parâmetro chave_secreta
+        2) variável de ambiente CRYPTO_KEY
+        3) chave padrão fixa interna (_CHAVE_PADRAO)
+
+        Nunca gera chave aleatória por padrão — isso quebraria a leitura
+        posterior de dados criptografados (PIN, etc.).
         """
-        if chave_secreta:
-            self.cipher = Fernet(chave_secreta.encode())
-            self.chave_secreta = chave_secreta
-        else:
-            chave = Fernet.generate_key()
-            self.chave_secreta = chave.decode()
-            self.cipher = Fernet(chave)
+        chave = chave_secreta or os.environ.get("CRYPTO_KEY") or self._CHAVE_PADRAO
+        try:
+            self.cipher = Fernet(chave.encode() if isinstance(chave, str) else chave)
+            self.chave_secreta = chave if isinstance(chave, str) else chave.decode()
+        except Exception:
+            # Se a chave configurada for inválida, cai para a padrão fixa
+            self.cipher = Fernet(self._CHAVE_PADRAO.encode())
+            self.chave_secreta = self._CHAVE_PADRAO
 
     # ========================================================================
     # CRIPTOGRAFIA AES (SENHAS)
