@@ -371,6 +371,8 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
                       <Form.Label>Marca</Form.Label>
                       <Form.Select value={marca} onChange={(e) => { setMarca(e.target.value); setModelo(''); }}>
                         <option value="">-- Escolha a marca --</option>
+                        {/* Inclui a marca salva mesmo que não esteja na lista (edição) */}
+                        {(marca && !MARCAS_CELULAR.includes(marca)) && <option value={marca}>{marca}</option>}
                         {MARCAS_CELULAR.map((m) => <option key={m} value={m}>{m}</option>)}
                       </Form.Select>
                     </Form.Group>
@@ -386,6 +388,8 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
                       <Form.Label>Modelo</Form.Label>
                       <Form.Select value={modelo} onChange={(e) => setModelo(e.target.value)} disabled={!marca}>
                         <option value="">-- Escolha o modelo --</option>
+                        {/* Inclui o modelo salvo mesmo que não esteja na lista (edição) */}
+                        {(modelo && !(MODELOS_POR_MARCA[marca] || []).includes(modelo)) && <option value={modelo}>{modelo}</option>}
                         {(MODELOS_POR_MARCA[marca] || []).map((m) => <option key={m} value={m}>{m}</option>)}
                       </Form.Select>
                     </Form.Group>
