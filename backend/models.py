@@ -152,6 +152,68 @@ class Lancamento(Base):
     cliente = relationship("Cliente", back_populates="lancamentos")
     ordem = relationship("OrdemServico", back_populates="lancamentos")
 
+class Produto(Base):
+    """Tabela de Produtos / Estoque (importado de ESTO.MDB do programa antigo)"""
+    __tablename__ = "produtos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    codigo_barras = Column(String(30), index=True)   # ESTO.CODIGO (código de barras)
+    descricao = Column(String(255), nullable=False, index=True)  # ESTO.E5
+    unidade = Column(String(20))                      # ESTO.E6 (CX/UN/PC/CONJ)
+    marca = Column(String(80), index=True)            # ESTO.E7
+    preco_custo = Column(Float, default=0.0)          # ESTO.E8
+    preco_venda = Column(Float, default=0.0)          # ESTO.E22
+    estoque = Column(Float, default=0.0)              # ESTO.E30 (quantidade)
+    categoria = Column(String(80), index=True)        # ESTO.S2
+    status = Column(String(20), default="ATIVO")      # ESTO.ST
+    ncm = Column(String(20))                          # ESTO.T2 (fiscal)
+    ativo = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relacionamentos
+    itens_venda = relationship("VendaItem", back_populates="produto")
+
+class Venda(Base):
+    """Tabela de Vendas (cabeçalho) - importado de VENDAS.MDB / tabela CADA"""
+    __tablename__ = "vendas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    codigo = Column(String(30), index=True)           # CADA.CODIGO (número da venda)
+    vendedor = Column(String(120))                    # CADA.VENDEDOR
+    cliente_nome = Column(String(120))                # CADA.CLIENTE
+    cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=True)
+    pagamento = Column(String(40))                    # CADA.PAGAMENTO (A VISTA)
+    desconto = Column(Float, default=0.0)             # CADA.DES
+    valor_total = Column(Float, default=0.0)          # CADA.VALOR
+    data = Column(Date, index=True)                   # CADA.DATA
+    hora = Column(String(10))                         # CADA.HORA
+    origem = Column(String(20), default="novo")       # novo | importado
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relacionamentos
+    itens = relationship("VendaItem", back_populates="venda", cascade="all, delete-orphan")
+
+class VendaItem(Base):
+    """Itens (linhas) de cada venda"""
+    __tablename__ = "venda_itens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    venda_id = Column(Integer, ForeignKey("vendas.id"), nullable=False)
+    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=True)
+    codigo_produto = Column(String(30))               # CADA.COD
+    descricao = Column(String(255))                   # CADA.PRODUTO
+    unidade = Column(String(20))                      # CADA.UNIDADE
+    quantidade = Column(Float, default=1.0)           # CADA.QTDA
+    preco_unitario = Column(Float, default=0.0)       # CADA.VENDA
+    subtotal = Column(Float, default=0.0)             # CADA.SUB
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relacionamentos
+    venda = relationship("Venda", back_populates="itens")
+    produto = relationship("Produto", back_populates="itens_venda")
+
 class SyncQueue(Base):
     """Fila de sincronização para offline-first"""
     __tablename__ = "sync_queue"

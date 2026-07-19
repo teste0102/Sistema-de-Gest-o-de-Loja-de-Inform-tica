@@ -19,6 +19,69 @@ router = APIRouter(
 )
 
 
+def _sincronizar_cliente_da_os(db: Session, ordem: OrdemServico) -> None:
+    """
+    Cadastra/atualiza o Cliente a partir dos dados preenchidos na OS.
+
+    Chamado quando a OS é salva com nome do cliente. NÃO quebra o fluxo da OS:
+    qualquer erro aqui é ignorado (a OS continua salva). Reaproveita um cliente
+    existente com o mesmo nome (e telefone, quando houver) em vez de duplicar.
+    """
+    try:
+        nome = (ordem.nome_cliente or "").strip()
+        if not nome:
+            return
+
+        telefone = (ordem.telefone_contato or "").strip()
+        # Montar endereço legível a partir dos campos do assistente
+        partes = [p for p in [
+            ordem.endereco_rua,
+            (f"nº {ordem.endereco_numero}" if ordem.endereco_numero else None),
+            ordem.endereco_complemento,
+            ordem.bairro,
+        ] if p]
+        endereco = ", ".join(partes) if partes else None
+
+        # Procurar cliente existente pelo nome (case-insensitive) e telefone
+        from sqlalchemy import func as _f
+        q = db.query(Cliente).filter(_f.lower(Cliente.nome) == nome.lower())
+        if telefone:
+            q_tel = q.filter(Cliente.telefone == telefone)
+            cliente = q_tel.first() or q.first()
+        else:
+            cliente = q.first()
+
+        if cliente:
+            # Atualizar dados vazios com o que veio da OS (sem sobrescrever à toa)
+            if endereco and not cliente.endereco:
+                cliente.endereco = endereco[:150]
+            if telefone and not cliente.telefone:
+                cliente.telefone = telefone[:15]
+            if ordem.cidade_os and not cliente.cidade:
+                cliente.cidade = ordem.cidade_os[:80]
+            db.add(cliente)
+        else:
+            # Criar novo cliente com próximo código sequencial
+            maior_cod = db.query(_f.max(Cliente.codigo)).scalar() or 0
+            cliente = Cliente(
+                codigo=int(maior_cod) + 1,
+                nome=nome[:120],
+                endereco=(endereco[:150] if endereco else None),
+                cidade=(ordem.cidade_os[:80] if ordem.cidade_os else None),
+                telefone=(telefone[:15] if telefone else None),
+                ativo=True,
+            )
+            db.add(cliente)
+            db.flush()  # garante cliente.id
+
+        # Vincular a OS ao cliente cadastrado
+        ordem.cliente_id = cliente.id
+        db.add(ordem)
+    except Exception as e:
+        # Nunca deixar o cadastro do cliente quebrar o salvamento da OS
+        print(f"⚠️  Sincronização de cliente ignorada: {e}")
+
+
 # ============================================================================
 # GERAR NOVO NÚMERO OS
 # ============================================================================
@@ -401,6 +464,10 @@ def alterar_os_completo(
             setattr(ordem, chave, valor)
 
         db.add(ordem)
+
+        # FASE 1: cadastrar/atualizar o cliente ao mesmo tempo que a OS é salva
+        _sincronizar_cliente_da_os(db, ordem)
+
         db.commit()
         db.refresh(ordem)
 
