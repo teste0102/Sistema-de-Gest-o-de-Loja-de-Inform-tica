@@ -5,11 +5,101 @@ routes/clientes.py - CRUD de Clientes
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from pydantic import BaseModel
 from database import get_db
 from models import Cliente
 from schemas import ClienteCreate, ClienteUpdate, ClienteResponse, MessageResponse
+from services.mdb_service import MdbService
+from services.ssh_mdb_service import SshMdbService
 
 router = APIRouter()
+
+
+# ===== IMPORTAÇÃO DO ACCESS (CADA.MDB / tabela CADA) =====
+class ImportarClientesMdb(BaseModel):
+    arquivo: str = "CADA.MDB"
+    tabela: str = "CADA"
+    subpasta: str = ""
+
+
+class ImportarClientesSsh(ImportarClientesMdb):
+    host: str
+    porta: int = 22
+    usuario: str
+    senha: str
+    caminho: str = "."
+
+
+def _limpar(v):
+    return (str(v).strip() if v is not None else "") or None
+
+
+def _dict_para_cliente(row: dict) -> dict:
+    """Mapeia uma linha da tabela CADA para os campos do modelo Cliente."""
+    email = (_limpar(row.get("A15")) or "")
+    # Só aceita email com formato mínimo válido (evita quebrar a listagem que valida EmailStr)
+    email = email[:120] if ("@" in email and "." in email) else None
+    return {
+        "codigo": row.get("CODIGO"),
+        "nome": _limpar(row.get("A1")) or "(sem nome)",
+        "telefone": (_limpar(row.get("A4")) or "")[:15] or None,
+        "contato": (_limpar(row.get("A8")) or "")[:60] or None,
+        "endereco": (_limpar(row.get("A9")) or "")[:150] or None,
+        "cidade": (_limpar(row.get("A12")) or "")[:80] or None,
+        "cep": (_limpar(row.get("A14")) or "")[:10] or None,
+        "email": email,
+    }
+
+
+def _gravar_clientes(db: Session, linhas: list) -> dict:
+    """Grava/atualiza clientes (código = chave)."""
+    criados = atualizados = 0
+    maior = db.query(func.max(Cliente.codigo)).scalar() or 0
+    for row in linhas:
+        dados = _dict_para_cliente(row)
+        # Normalizar código para inteiro sequencial
+        try:
+            cod = int(str(dados.get("codigo")).strip())
+        except (ValueError, TypeError, AttributeError):
+            maior += 1
+            cod = maior
+        dados["codigo"] = cod
+
+        existente = db.query(Cliente).filter(Cliente.codigo == cod).first()
+        if existente:
+            for chave, valor in dados.items():
+                if valor is not None:
+                    setattr(existente, chave, valor)
+            db.add(existente)
+            atualizados += 1
+        else:
+            db.add(Cliente(ativo=True, **dados))
+            criados += 1
+    db.commit()
+    return {"total_lidos": len(linhas), "criados": criados, "atualizados": atualizados}
+
+
+@router.post("/importar-mdb", response_model=dict)
+def importar_clientes_mdb(req: ImportarClientesMdb, db: Session = Depends(get_db)):
+    """Importa clientes de um .mdb na pasta montada (rede/local)."""
+    caminho = f"{req.subpasta.rstrip('/')}/{req.arquivo}" if req.subpasta else req.arquivo
+    try:
+        linhas = MdbService.ler_tabela_completa(caminho, req.tabela)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao ler {caminho}: {str(e)}")
+    return {"ok": True, "arquivo": caminho, "tabela": req.tabela, **_gravar_clientes(db, linhas)}
+
+
+@router.post("/importar-mdb-ssh", response_model=dict)
+def importar_clientes_ssh(req: ImportarClientesSsh, db: Session = Depends(get_db)):
+    """Importa clientes de um .mdb em outro computador da rede via SSH/SFTP."""
+    try:
+        linhas = SshMdbService.ler_tabela_completa(
+            req.host, req.porta, req.usuario, req.senha, req.caminho, req.arquivo, req.tabela
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao ler {req.arquivo} via SSH: {str(e)}")
+    return {"ok": True, "arquivo": req.arquivo, "host": req.host, "tabela": req.tabela, **_gravar_clientes(db, linhas)}
 
 # ===== LISTAR =====
 
