@@ -154,6 +154,21 @@ class SshMdbService:
                 pass
 
     @staticmethod
+    def ler_tabela_completa(host, porta, usuario, senha, caminho, arquivo, tabela) -> List[Dict]:
+        """Baixa o .mdb remoto e lê TODA uma tabela como lista de dicts (para importação)."""
+        local = SshMdbService._baixar_temp(host, porta, usuario, senha, caminho, arquivo)
+        try:
+            res = subprocess.run(["mdb-export", local, tabela], capture_output=True, text=True, timeout=300)
+            if res.returncode != 0:
+                raise ValueError(res.stderr.strip() or "Falha ao exportar tabela")
+            return list(csv.DictReader(io.StringIO(res.stdout)))
+        finally:
+            try:
+                os.remove(local)
+            except OSError:
+                pass
+
+    @staticmethod
     def preview(host, porta, usuario, senha, caminho, arquivo, tabela, limite=20) -> Dict:
         try:
             local = SshMdbService._baixar_temp(host, porta, usuario, senha, caminho, arquivo)

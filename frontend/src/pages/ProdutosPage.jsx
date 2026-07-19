@@ -19,6 +19,11 @@ export default function ProdutosPage() {
   const [editando, setEditando] = useState(PRODUTO_VAZIO);
   const [importando, setImportando] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [showImport, setShowImport] = useState(false);
+  const [imp, setImp] = useState({
+    modo: 'local', subpasta: '', arquivo: 'ESTO.MDB', tabela: 'ESTO',
+    host: '', porta: 22, usuario: '', senha: '', caminho: '.',
+  });
 
   useEffect(() => { carregar(); carregarStats(); }, []);
 
@@ -85,11 +90,21 @@ export default function ProdutosPage() {
   };
 
   const importarAccess = async () => {
-    if (!window.confirm('Importar produtos do ESTO.MDB? Produtos existentes (mesmo código de barras) serão atualizados.')) return;
     try {
       setImportando(true);
       setMsg(null);
-      const r = await api.post('/api/produtos/importar-mdb', { arquivo: 'ESTO.MDB', tabela: 'ESTO' });
+      let r;
+      if (imp.modo === 'ssh') {
+        r = await api.post('/api/produtos/importar-mdb-ssh', {
+          host: imp.host, porta: Number(imp.porta) || 22, usuario: imp.usuario,
+          senha: imp.senha, caminho: imp.caminho || '.', arquivo: imp.arquivo, tabela: imp.tabela,
+        });
+      } else {
+        r = await api.post('/api/produtos/importar-mdb', {
+          subpasta: imp.subpasta, arquivo: imp.arquivo, tabela: imp.tabela,
+        });
+      }
+      setShowImport(false);
       setMsg({
         tipo: 'success',
         texto: `Importação concluída: ${r.total_lidos} lidos, ${r.criados} criados, ${r.atualizados} atualizados.`,
@@ -109,8 +124,8 @@ export default function ProdutosPage() {
       <Row className="mb-3 align-items-center">
         <Col><h1>📦 Produtos / Estoque</h1></Col>
         <Col className="text-end">
-          <Button variant="success" className="me-2" onClick={importarAccess} disabled={importando}>
-            {importando ? (<><Spinner size="sm" animation="border" /> Importando...</>) : '📥 Importar do Access'}
+          <Button variant="success" className="me-2" onClick={() => setShowImport(true)} disabled={importando}>
+            📥 Importar do Access
           </Button>
           <Button variant="primary" onClick={abrirNovo}>➕ Novo Produto</Button>
         </Col>
@@ -206,6 +221,57 @@ export default function ProdutosPage() {
           )}
         </Card.Body>
       </Card>
+
+      {/* Modal de importação (pasta na rede / SSH) */}
+      <Modal show={showImport} onHide={() => setShowImport(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>📥 Importar produtos do Access</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-3 d-flex gap-2">
+            <Button variant={imp.modo === 'local' ? 'primary' : 'outline-primary'} size="sm"
+              onClick={() => setImp({ ...imp, modo: 'local' })}>📁 Pasta na rede</Button>
+            <Button variant={imp.modo === 'ssh' ? 'primary' : 'outline-primary'} size="sm"
+              onClick={() => setImp({ ...imp, modo: 'ssh' })}>🔐 Outro PC (SSH)</Button>
+          </div>
+
+          {imp.modo === 'local' ? (
+            <>
+              <Form.Label>Subpasta compartilhada (dentro da pasta montada)</Form.Label>
+              <Form.Control className="mb-2" placeholder="ex.: Backup 02.01.2026 (vazio = raiz)"
+                value={imp.subpasta} onChange={(e) => setImp({ ...imp, subpasta: e.target.value })} />
+              <small className="text-muted">A pasta do outro computador precisa estar mapeada/compartilhada na pasta de dados.</small>
+            </>
+          ) : (
+            <Row className="g-2">
+              <Col md={8}><Form.Label>IP do computador</Form.Label>
+                <Form.Control placeholder="192.168.0.10" value={imp.host} onChange={(e) => setImp({ ...imp, host: e.target.value })} /></Col>
+              <Col md={4}><Form.Label>Porta</Form.Label>
+                <Form.Control value={imp.porta} onChange={(e) => setImp({ ...imp, porta: e.target.value })} /></Col>
+              <Col md={6}><Form.Label>Usuário</Form.Label>
+                <Form.Control value={imp.usuario} onChange={(e) => setImp({ ...imp, usuario: e.target.value })} /></Col>
+              <Col md={6}><Form.Label>Senha</Form.Label>
+                <Form.Control type="password" value={imp.senha} onChange={(e) => setImp({ ...imp, senha: e.target.value })} /></Col>
+              <Col md={12}><Form.Label>Pasta do arquivo no outro PC</Form.Label>
+                <Form.Control placeholder="ex.: C:/loja/dados ou ." value={imp.caminho} onChange={(e) => setImp({ ...imp, caminho: e.target.value })} /></Col>
+            </Row>
+          )}
+
+          <Row className="g-2 mt-1">
+            <Col md={6}><Form.Label>Arquivo</Form.Label>
+              <Form.Control value={imp.arquivo} onChange={(e) => setImp({ ...imp, arquivo: e.target.value })} /></Col>
+            <Col md={6}><Form.Label>Tabela</Form.Label>
+              <Form.Control value={imp.tabela} onChange={(e) => setImp({ ...imp, tabela: e.target.value })} /></Col>
+          </Row>
+          <small className="text-muted d-block mt-2">Produtos existentes (mesmo código de barras) são atualizados; novos são criados.</small>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowImport(false)}>Cancelar</Button>
+          <Button variant="success" onClick={importarAccess} disabled={importando}>
+            {importando ? (<><Spinner size="sm" animation="border" /> Importando...</>) : '📥 Importar'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Modal de edição / novo */}
       <Modal show={showForm} onHide={() => setShowForm(false)} size="lg">

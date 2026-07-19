@@ -17,6 +17,7 @@ from typing import Optional
 from database import get_db
 from models import Produto
 from services.mdb_service import MdbService
+from services.ssh_mdb_service import SshMdbService
 
 router = APIRouter(tags=["Produtos / Estoque"])
 
@@ -37,6 +38,17 @@ class ProdutoIn(BaseModel):
 
 
 class ImportarMdb(BaseModel):
+    arquivo: str = "ESTO.MDB"
+    tabela: str = "ESTO"
+    subpasta: str = ""            # subpasta dentro da pasta montada (rede/local)
+
+
+class ImportarMdbSsh(BaseModel):
+    host: str
+    porta: int = 22
+    usuario: str
+    senha: str
+    caminho: str = "."           # pasta do .mdb no outro computador
     arquivo: str = "ESTO.MDB"
     tabela: str = "ESTO"
 
@@ -163,18 +175,8 @@ def deletar_produto(produto_id: int, db: Session = Depends(get_db)):
 
 
 # ===== IMPORTAR DO ACCESS (ESTO.MDB) =====
-@router.post("/importar-mdb", response_model=dict)
-def importar_do_mdb(req: ImportarMdb, db: Session = Depends(get_db)):
-    """
-    Importa produtos do arquivo Access (ESTO.MDB, tabela ESTO) montado no container.
-
-    Produtos existentes (mesmo código de barras) são ATUALIZADOS; novos são criados.
-    """
-    try:
-        linhas = MdbService.ler_tabela_completa(req.arquivo, req.tabela)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Erro ao ler {req.arquivo}: {str(e)}")
-
+def _gravar_produtos(db: Session, linhas: list) -> dict:
+    """Grava/atualiza produtos a partir das linhas lidas do .mdb (código de barras = chave)."""
     criados = 0
     atualizados = 0
     for row in linhas:
@@ -195,14 +197,41 @@ def importar_do_mdb(req: ImportarMdb, db: Session = Depends(get_db)):
             criados += 1
 
     db.commit()
-    return {
-        "ok": True,
-        "arquivo": req.arquivo,
-        "tabela": req.tabela,
-        "total_lidos": len(linhas),
-        "criados": criados,
-        "atualizados": atualizados,
-    }
+    return {"total_lidos": len(linhas), "criados": criados, "atualizados": atualizados}
+
+
+@router.post("/importar-mdb", response_model=dict)
+def importar_do_mdb(req: ImportarMdb, db: Session = Depends(get_db)):
+    """
+    Importa produtos de um .mdb na pasta montada (rede/local).
+    'subpasta' permite escolher a pasta do outro computador compartilhada.
+    Produtos existentes (mesmo código de barras) são ATUALIZADOS; novos são criados.
+    """
+    caminho = f"{req.subpasta.rstrip('/')}/{req.arquivo}" if req.subpasta else req.arquivo
+    try:
+        linhas = MdbService.ler_tabela_completa(caminho, req.tabela)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao ler {caminho}: {str(e)}")
+
+    resultado = _gravar_produtos(db, linhas)
+    return {"ok": True, "arquivo": caminho, "tabela": req.tabela, **resultado}
+
+
+@router.post("/importar-mdb-ssh", response_model=dict)
+def importar_do_mdb_ssh(req: ImportarMdbSsh, db: Session = Depends(get_db)):
+    """
+    Importa produtos de um .mdb em outro computador da rede via SSH/SFTP.
+    Baixa o arquivo, lê a tabela e grava (mesma regra do local).
+    """
+    try:
+        linhas = SshMdbService.ler_tabela_completa(
+            req.host, req.porta, req.usuario, req.senha, req.caminho, req.arquivo, req.tabela
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao ler {req.arquivo} via SSH: {str(e)}")
+
+    resultado = _gravar_produtos(db, linhas)
+    return {"ok": True, "arquivo": req.arquivo, "host": req.host, "tabela": req.tabela, **resultado}
 
 
 # ===== ESTATÍSTICAS =====
