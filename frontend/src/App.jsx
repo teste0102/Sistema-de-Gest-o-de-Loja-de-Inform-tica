@@ -10,6 +10,7 @@ import OrdensPage from './pages/OrdensPage';
 import FinanceiroPage from './pages/FinanceiroPage';
 import OSPage from './pages/OSPage';
 import ProdutosPage from './pages/ProdutosPage';
+import VendasPage from './pages/VendasPage';
 import SincronizacaoPage from './pages/SincronizacaoPage';
 import LoginPage from './pages/LoginPage';
 
@@ -77,6 +78,7 @@ function App() {
                 <Nav.Link href="/ordens">Ordens</Nav.Link>
                 <Nav.Link href="/os">Ferramentas OS</Nav.Link>
                 <Nav.Link href="/produtos">Produtos</Nav.Link>
+                <Nav.Link href="/vendas">Vendas</Nav.Link>
                 <Nav.Link href="/financeiro">Financeiro</Nav.Link>
                 <Nav.Link href="/sincronizacao">Sincronização</Nav.Link>
               </Nav>
@@ -113,6 +115,7 @@ function App() {
             <Route path="/ordens" element={<OrdensPage />} />
             <Route path="/os" element={<OSPage />} />
             <Route path="/produtos" element={<ProdutosPage />} />
+            <Route path="/vendas" element={<VendasPage />} />
             <Route path="/financeiro" element={<FinanceiroPage />} />
             <Route path="/sincronizacao" element={<SincronizacaoPage />} />
           </Routes>

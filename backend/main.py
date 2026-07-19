@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from config import settings, detect_os, validate_db_connection
 from database import init_db, get_db
-from routes import clientes, ordens, financeiro, sync, webhook, numeros_os, senhas, fotos, laudo, auth, mdb_sync, produtos
+from routes import clientes, ordens, financeiro, sync, webhook, numeros_os, senhas, fotos, laudo, auth, mdb_sync, produtos, vendas
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -99,6 +99,7 @@ app.include_router(senhas.router, prefix="/api/os", tags=["Senhas"])
 app.include_router(fotos.router, prefix="/api/os", tags=["Fotos"])
 app.include_router(laudo.router, prefix="/api/os", tags=["Laudos Técnicos"])
 app.include_router(produtos.router, prefix="/api/produtos", tags=["Produtos / Estoque"])
+app.include_router(vendas.router, prefix="/api/vendas", tags=["Vendas"])
 app.include_router(financeiro.router, prefix="/api/financeiro", tags=["Financeiro"])
 app.include_router(sync.router, prefix="/api/sync", tags=["Sincronização"])
 app.include_router(mdb_sync.router, prefix="/api/sync", tags=["Sincronização MDB"])
