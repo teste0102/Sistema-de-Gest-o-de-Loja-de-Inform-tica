@@ -10,7 +10,8 @@ from fastapi.responses import JSONResponse
 
 from config import settings, detect_os, validate_db_connection
 from database import init_db, get_db
-from routes import clientes, ordens, financeiro, sync, webhook, numeros_os, senhas, fotos, laudo, auth, mdb_sync, produtos, vendas
+import asyncio
+from routes import clientes, ordens, financeiro, sync, webhook, numeros_os, senhas, fotos, laudo, auth, mdb_sync, produtos, vendas, sync_auto
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -36,10 +37,58 @@ app.add_middleware(
 
 # ===== STARTUP/SHUTDOWN =====
 
+def _ciclo_sync_automatica() -> int:
+    """Executa um ciclo de sincronização entre terminais (roda numa thread).
+    Retorna o intervalo em minutos para o próximo ciclo."""
+    from database import SessionLocal
+    from routes.sync_auto import obter_config
+    from services import sync_terminais
+    from datetime import datetime as _dt
+
+    db = SessionLocal()
+    try:
+        cfg = obter_config(db)
+        intervalo = int(cfg.intervalo_min or 5)
+        if not cfg.ativo:
+            return intervalo
+        total = sync_terminais.sincronizar(db, cfg)
+        cfg.ultima_sync = _dt.utcnow()
+        cfg.ultimo_status = (
+            f"AUTO OK: clientes {total['clientes']}, produtos {total['produtos']}, "
+            f"vendas {total['vendas']} ({total['terminais']} terminal/is)"
+        )
+        db.add(cfg)
+        db.commit()
+        logger.info(f"🔄 {cfg.ultimo_status}")
+        return int(cfg.intervalo_min or 5)
+    finally:
+        db.close()
+
+
+async def _loop_sync_automatica():
+    """Laço da sincronização automática. Respeita o intervalo configurado."""
+    # Pequena espera inicial para o app subir por completo
+    await asyncio.sleep(20)
+    while True:
+        intervalo = 5
+        try:
+            intervalo = await asyncio.get_event_loop().run_in_executor(None, _ciclo_sync_automatica)
+        except Exception as e:
+            logger.warning(f"⚠️  Sync automática falhou (ignorado): {e}")
+        await asyncio.sleep(max(1, int(intervalo)) * 60)
+
+
 @app.on_event("startup")
 async def startup_event():
     """Executado ao iniciar a aplicação"""
     logger.info("🚀 Iniciando aplicação...")
+
+    # Inicia a sincronização automática entre terminais em segundo plano
+    try:
+        asyncio.create_task(_loop_sync_automatica())
+        logger.info("🔄 Sincronização automática agendada")
+    except Exception as e:
+        logger.warning(f"⚠️  Não foi possível iniciar a sync automática: {e}")
     
     # Detectar SO
     os_info = detect_os()
@@ -100,6 +149,7 @@ app.include_router(fotos.router, prefix="/api/os", tags=["Fotos"])
 app.include_router(laudo.router, prefix="/api/os", tags=["Laudos Técnicos"])
 app.include_router(produtos.router, prefix="/api/produtos", tags=["Produtos / Estoque"])
 app.include_router(vendas.router, prefix="/api/vendas", tags=["Vendas"])
+app.include_router(sync_auto.router, prefix="/api/sync-auto", tags=["Sincronização Automática"])
 app.include_router(financeiro.router, prefix="/api/financeiro", tags=["Financeiro"])
 app.include_router(sync.router, prefix="/api/sync", tags=["Sincronização"])
 app.include_router(mdb_sync.router, prefix="/api/sync", tags=["Sincronização MDB"])

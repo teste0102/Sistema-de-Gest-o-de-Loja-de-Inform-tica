@@ -214,6 +214,29 @@ class VendaItem(Base):
     venda = relationship("Venda", back_populates="itens")
     produto = relationship("Produto", back_populates="itens_venda")
 
+class SyncConfig(Base):
+    """Configuração da sincronização automática entre terminais (linha única)."""
+    __tablename__ = "sync_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    terminal_id = Column(String(40))          # identifica este terminal (ex.: terminal-a1b2)
+    modo = Column(String(10), default="pasta")  # pasta | ssh
+    # Modo pasta (rede/local montada no container)
+    pasta_local = Column(String(255))         # caminho da pasta compartilhada
+    # Modo SSH (outro PC)
+    ssh_host = Column(String(120))
+    ssh_porta = Column(Integer, default=22)
+    ssh_usuario = Column(String(80))
+    ssh_senha = Column(String(120))
+    ssh_caminho = Column(String(255), default=".")
+    # Agendamento
+    intervalo_min = Column(Integer, default=5)
+    ativo = Column(Boolean, default=False)
+    ultima_sync = Column(DateTime)
+    ultimo_status = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class SyncQueue(Base):
     """Fila de sincronização para offline-first"""
     __tablename__ = "sync_queue"

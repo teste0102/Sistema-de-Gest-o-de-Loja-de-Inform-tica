@@ -29,10 +29,48 @@ export default function SincronizacaoPage() {
   const [redeHosts, setRedeHosts] = useState(null);
   const [escaneandoRede, setEscaneandoRede] = useState(false);
 
+  // Sincronização automática entre terminais (dois lados)
+  const [auto, setAuto] = useState(null);
+  const [sincronizandoAgora, setSincronizandoAgora] = useState(false);
+
   useEffect(() => {
     carregarTudo();
     verificarMdb();
+    carregarAuto();
   }, []);
+
+  const carregarAuto = async () => {
+    try {
+      const res = await api.get('/api/sync-auto/config');
+      setAuto(res.config);
+    } catch (e) { /* silencioso */ }
+  };
+
+  const salvarAuto = async (patch = {}) => {
+    try {
+      const corpo = { ...auto, ...patch };
+      // não reenvia a senha mascarada
+      if (corpo.ssh_senha === '***') delete corpo.ssh_senha;
+      const res = await api.put('/api/sync-auto/config', corpo);
+      setAuto(res.config);
+      flash('success', 'Configuração salva.');
+    } catch (e) {
+      flash('danger', `Erro ao salvar: ${e.response?.data?.detail || e.message}`);
+    }
+  };
+
+  const sincronizarAgora = async () => {
+    try {
+      setSincronizandoAgora(true);
+      const res = await api.post('/api/sync-auto/agora', {});
+      flash('success', res.mensagem || 'Sincronizado!');
+      carregarAuto();
+    } catch (e) {
+      flash('danger', `Erro: ${e.response?.data?.detail || e.message}`);
+    } finally {
+      setSincronizandoAgora(false);
+    }
+  };
 
   const verificarMdb = async () => {
     try {
@@ -221,6 +259,85 @@ export default function SincronizacaoPage() {
       </Row>
 
       {msg && <Alert variant={msg.variant}>{msg.texto}</Alert>}
+
+      {/* ===== SINCRONIZAÇÃO AUTOMÁTICA ENTRE TERMINAIS (DOIS LADOS) ===== */}
+      <Card className="mb-4 border-success">
+        <Card.Header className="bg-success text-white d-flex justify-content-between align-items-center">
+          <span>🔁 Sincronização Automática entre Terminais (dois lados)</span>
+          {auto && <Badge bg={auto.ativo ? 'light' : 'secondary'} text={auto.ativo ? 'success' : 'light'}>
+            {auto.ativo ? 'LIGADA' : 'Desligada'}
+          </Badge>}
+        </Card.Header>
+        <Card.Body>
+          {!auto ? (
+            <div className="text-muted">Carregando configuração...</div>
+          ) : (
+            <>
+              <p className="text-muted mb-3">
+                Aponte a pasta compartilhada (rede) ou o outro PC (SSH). O sistema envia o que
+                mudou aqui e traz o que mudou lá, automaticamente. Vence sempre a última edição.
+              </p>
+
+              <Row className="g-2 mb-3">
+                <Col md={3}>
+                  <Form.Label>Este terminal</Form.Label>
+                  <Form.Control value={auto.terminal_id || ''} readOnly size="sm" />
+                </Col>
+                <Col md={3}>
+                  <Form.Label>Como conectar</Form.Label>
+                  <Form.Select size="sm" value={auto.modo || 'pasta'} onChange={(e) => setAuto({ ...auto, modo: e.target.value })}>
+                    <option value="pasta">📁 Pasta na rede</option>
+                    <option value="ssh">🔐 Outro PC (SSH)</option>
+                  </Form.Select>
+                </Col>
+                <Col md={3}>
+                  <Form.Label>Sincronizar a cada (min)</Form.Label>
+                  <Form.Control type="number" min="1" size="sm" value={auto.intervalo_min || 5}
+                    onChange={(e) => setAuto({ ...auto, intervalo_min: Number(e.target.value) })} />
+                </Col>
+                <Col md={3} className="d-flex align-items-end">
+                  <Form.Check type="switch" id="auto-ativo" label="Automático ligado"
+                    checked={!!auto.ativo} onChange={(e) => setAuto({ ...auto, ativo: e.target.checked })} />
+                </Col>
+              </Row>
+
+              {auto.modo === 'ssh' ? (
+                <Row className="g-2 mb-3">
+                  <Col md={4}><Form.Label>IP do outro PC</Form.Label>
+                    <Form.Control size="sm" placeholder="192.168.0.10" value={auto.ssh_host || ''} onChange={(e) => setAuto({ ...auto, ssh_host: e.target.value })} /></Col>
+                  <Col md={2}><Form.Label>Porta</Form.Label>
+                    <Form.Control size="sm" value={auto.ssh_porta || 22} onChange={(e) => setAuto({ ...auto, ssh_porta: Number(e.target.value) })} /></Col>
+                  <Col md={3}><Form.Label>Usuário</Form.Label>
+                    <Form.Control size="sm" value={auto.ssh_usuario || ''} onChange={(e) => setAuto({ ...auto, ssh_usuario: e.target.value })} /></Col>
+                  <Col md={3}><Form.Label>Senha</Form.Label>
+                    <Form.Control size="sm" type="password" placeholder={auto.ssh_senha === '***' ? '•••• (salva)' : ''} onChange={(e) => setAuto({ ...auto, ssh_senha: e.target.value })} /></Col>
+                  <Col md={12}><Form.Label>Pasta compartilhada no outro PC</Form.Label>
+                    <Form.Control size="sm" placeholder="ex.: C:/loja/sync ou ." value={auto.ssh_caminho || ''} onChange={(e) => setAuto({ ...auto, ssh_caminho: e.target.value })} /></Col>
+                </Row>
+              ) : (
+                <Row className="g-2 mb-3">
+                  <Col md={12}><Form.Label>Pasta compartilhada (na rede, montada na pasta de dados)</Form.Label>
+                    <Form.Control size="sm" placeholder="ex.: sync (vazio = pasta padrão de dados/sync)" value={auto.pasta_local || ''} onChange={(e) => setAuto({ ...auto, pasta_local: e.target.value })} />
+                    <small className="text-muted">Os dois terminais devem apontar para a MESMA pasta compartilhada.</small>
+                  </Col>
+                </Row>
+              )}
+
+              <div className="d-flex gap-2 align-items-center">
+                <Button variant="success" onClick={() => salvarAuto()}>💾 Salvar configuração</Button>
+                <Button variant="outline-success" onClick={sincronizarAgora} disabled={sincronizandoAgora}>
+                  {sincronizandoAgora ? (<><Spinner size="sm" animation="border" /> Sincronizando...</>) : '🔁 Sincronizar agora'}
+                </Button>
+                {auto.ultima_sync && (
+                  <span className="text-muted small ms-2">
+                    Última: {new Date(auto.ultima_sync).toLocaleString('pt-BR')} — {auto.ultimo_status}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+        </Card.Body>
+      </Card>
 
       {/* ===== SCANNER DE ARQUIVOS ACCESS (.mdb) ===== */}
       <Card className="mb-4 border-primary">

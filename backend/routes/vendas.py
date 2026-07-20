@@ -146,9 +146,16 @@ def obter_venda(venda_id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=dict, status_code=201)
 def criar_venda(dados: VendaIn, db: Session = Depends(get_db)):
     """Cria uma venda nova (PDV). Baixa o estoque dos produtos vinculados."""
-    # Próximo código sequencial de venda nova
+    # Próximo código sequencial de venda nova, prefixado pelo terminal para ser
+    # único entre os terminais na sincronização (evita colisão de "V000001").
     maior = db.query(func.max(Venda.id)).scalar() or 0
-    codigo = f"V{int(maior) + 1:06d}"
+    try:
+        from models import SyncConfig
+        cfg = db.query(SyncConfig).first()
+        pref = (cfg.terminal_id if cfg and cfg.terminal_id else "local").replace("terminal-", "")
+    except Exception:
+        pref = "local"
+    codigo = f"{pref}-V{int(maior) + 1:06d}"
 
     total_calc = 0.0
     v = Venda(
