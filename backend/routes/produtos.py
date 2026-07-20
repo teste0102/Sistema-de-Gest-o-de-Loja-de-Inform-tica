@@ -15,9 +15,10 @@ from pydantic import BaseModel
 from typing import Optional
 
 from database import get_db
-from models import Produto
+from models import Produto, MovimentoEstoque
 from services.mdb_service import MdbService
 from services.ssh_mdb_service import SshMdbService
+from services import estoque_service
 
 router = APIRouter(tags=["Produtos / Estoque"])
 
@@ -143,9 +144,13 @@ def buscar_por_codigo_barras(codigo: str, db: Session = Depends(get_db)):
 # ===== CRIAR / ALTERAR / DELETAR =====
 @router.post("/", response_model=dict, status_code=201)
 def criar_produto(dados: ProdutoIn, db: Session = Depends(get_db)):
-    """Cria um produto manualmente."""
-    p = Produto(**dados.dict())
+    """Cria um produto manualmente. O estoque inicial vira a contagem base."""
+    campos = dados.dict()
+    qtd_inicial = campos.pop("estoque", 0) or 0
+    p = Produto(estoque=0, **campos)
     db.add(p)
+    db.flush()  # garante p.id
+    estoque_service.definir_baseline(db, p, qtd_inicial, commit=False)
     db.commit()
     db.refresh(p)
     return {"ok": True, "id": p.id}
@@ -153,14 +158,37 @@ def criar_produto(dados: ProdutoIn, db: Session = Depends(get_db)):
 
 @router.put("/{produto_id}", response_model=dict)
 def alterar_produto(produto_id: int, dados: ProdutoIn, db: Session = Depends(get_db)):
-    """Altera um produto existente."""
+    """Altera um produto. Mudança de estoque vira movimento de ajuste (não sobrescreve)."""
     p = db.query(Produto).filter(Produto.id == produto_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
-    for chave, valor in dados.dict(exclude_unset=True).items():
+    campos = dados.dict(exclude_unset=True)
+    novo_estoque = campos.pop("estoque", None)
+    for chave, valor in campos.items():
         setattr(p, chave, valor)
+    if novo_estoque is not None:
+        estoque_service.definir_estoque(db, p, novo_estoque, origem="manual", commit=False)
     db.commit()
     return {"ok": True, "id": p.id}
+
+
+@router.get("/{produto_id}/movimentos", response_model=dict)
+def movimentos_produto(produto_id: int, db: Session = Depends(get_db)):
+    """Histórico de movimentos de estoque de um produto."""
+    p = db.query(Produto).filter(Produto.id == produto_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+    movs = db.query(MovimentoEstoque).filter(
+        MovimentoEstoque.produto_id == produto_id
+    ).order_by(MovimentoEstoque.created_at.desc()).all()
+    return {
+        "ok": True, "produto_id": produto_id, "estoque_atual": float(p.estoque or 0),
+        "movimentos": [{
+            "tipo": m.tipo, "delta": float(m.delta or 0), "origem": m.origem,
+            "referencia": m.referencia, "terminal": m.terminal_id, "observacao": m.observacao,
+            "data": m.created_at.isoformat() if m.created_at else None,
+        } for m in movs],
+    }
 
 
 @router.delete("/{produto_id}", response_model=dict)
@@ -181,6 +209,7 @@ def _gravar_produtos(db: Session, linhas: list) -> dict:
     atualizados = 0
     for row in linhas:
         dados = _dict_para_produto(row)
+        qtd = dados.pop("estoque", 0) or 0   # estoque é tratado como contagem base (movimento)
         cb = dados.get("codigo_barras")
 
         existente = None
@@ -191,10 +220,15 @@ def _gravar_produtos(db: Session, linhas: list) -> dict:
             for chave, valor in dados.items():
                 setattr(existente, chave, valor)
             db.add(existente)
+            prod = existente
             atualizados += 1
         else:
-            db.add(Produto(**dados))
+            prod = Produto(estoque=0, **dados)
+            db.add(prod)
+            db.flush()  # garante prod.id
             criados += 1
+
+        estoque_service.definir_baseline(db, prod, qtd, commit=False)
 
     db.commit()
     return {"total_lidos": len(linhas), "criados": criados, "atualizados": atualizados}

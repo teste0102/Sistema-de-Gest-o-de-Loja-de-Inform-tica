@@ -55,7 +55,8 @@ def _ciclo_sync_automatica() -> int:
         cfg.ultima_sync = _dt.utcnow()
         cfg.ultimo_status = (
             f"AUTO OK: clientes {total['clientes']}, produtos {total['produtos']}, "
-            f"vendas {total['vendas']} ({total['terminais']} terminal/is)"
+            f"vendas {total['vendas']}, estoque {total.get('movimentos', 0)} "
+            f"({total['terminais']} terminal/is)"
         )
         db.add(cfg)
         db.commit()
@@ -105,6 +106,19 @@ async def startup_event():
             seed_dados_iniciais()
         except Exception as e:
             logger.warning(f"⚠️  Falha no seed inicial (ignorado): {e}")
+        # Gera a contagem base do estoque para produtos ainda sem movimento
+        try:
+            from database import SessionLocal
+            from services.estoque_service import backfill_baselines
+            _db = SessionLocal()
+            try:
+                n = backfill_baselines(_db)
+                if n:
+                    logger.info(f"📦 Contagem base criada para {n} produto(s)")
+            finally:
+                _db.close()
+        except Exception as e:
+            logger.warning(f"⚠️  Falha no backfill de estoque (ignorado): {e}")
     else:
         logger.warning(f"⚠️  BD Desconectado: {db_status['message']}")
     

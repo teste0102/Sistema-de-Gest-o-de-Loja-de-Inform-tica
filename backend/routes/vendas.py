@@ -172,12 +172,15 @@ def criar_venda(dados: VendaIn, db: Session = Depends(get_db)):
             descricao=it.descricao, unidade=it.unidade, quantidade=it.quantidade,
             preco_unitario=it.preco_unitario, subtotal=sub,
         ))
-        # Baixar estoque quando o produto está cadastrado
+        # Baixar estoque como MOVIMENTO (soma/subtrai; sincroniza sem sobrescrever)
         if it.produto_id:
             p = db.query(Produto).filter(Produto.id == it.produto_id).first()
-            if p and p.estoque is not None:
-                p.estoque = float(p.estoque) - float(it.quantidade or 0)
-                db.add(p)
+            if p:
+                from services import estoque_service
+                estoque_service.registrar_movimento(
+                    db, p, "saida", -float(it.quantidade or 0),
+                    origem="venda", referencia=codigo, commit=False,
+                )
 
     v.valor_total = dados.valor_total or max(total_calc - (dados.desconto or 0.0), 0.0)
     db.add(v)

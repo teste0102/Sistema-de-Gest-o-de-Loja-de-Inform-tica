@@ -15,7 +15,7 @@ import stat
 import tempfile
 from datetime import datetime
 
-from models import Cliente, Produto, Venda, VendaItem
+from models import Cliente, Produto, Venda, VendaItem, MovimentoEstoque
 from services.mdb_service import MDB_DIR
 
 try:
@@ -70,12 +70,20 @@ def exportar_local(db) -> dict:
         } for it in v.itens],
     } for v in db.query(Venda).all()]
 
+    movimentos = [{
+        "uid": m.uid, "codigo_barras": m.codigo_barras, "tipo": m.tipo,
+        "quantidade": m.quantidade, "delta": m.delta, "origem": m.origem,
+        "referencia": m.referencia, "terminal_id": m.terminal_id, "observacao": m.observacao,
+        "updated_at": _dt(m.updated_at),
+    } for m in db.query(MovimentoEstoque).all()]
+
     return {
         "versao": 1,
         "gerado_em": datetime.utcnow().isoformat(),
         "clientes": clientes,
         "produtos": produtos,
         "vendas": vendas,
+        "movimentos": movimentos,
     }
 
 
@@ -91,9 +99,63 @@ def _mais_novo(incoming_dt, atual_dt) -> bool:
     return incoming_dt >= atual_dt
 
 
+def _aplicar_movimentos(db, dados: dict) -> int:
+    """
+    Aplica os movimentos de estoque recebidos, atualizando o cache do produto.
+      - eventos (venda/ajuste/entrada): append-only, dedup por uid, soma o delta.
+      - baseline ('inicial', uid base:*): upsert com última edição; ajusta pela diferença.
+    Produtos já foram criados na etapa anterior, então conseguimos localizá-los.
+    """
+    aplicados = 0
+    for m in dados.get("movimentos", []):
+        uid = m.get("uid")
+        if not uid:
+            continue
+        cb = m.get("codigo_barras")
+        delta = float(m.get("delta") or 0)
+        inc_dt = _parse_dt(m.get("updated_at"))
+        produto = None
+        if cb:
+            produto = db.query(Produto).filter(Produto.codigo_barras == cb).first()
+        if produto is None:
+            continue  # sem produto local para aplicar (ex.: sem código de barras)
+
+        existente = db.query(MovimentoEstoque).filter(MovimentoEstoque.uid == uid).first()
+        eh_baseline = (m.get("tipo") == "inicial") or uid.startswith("base:")
+
+        if existente:
+            if eh_baseline and _mais_novo(inc_dt, existente.updated_at):
+                # ajusta o cache pela diferença da base
+                produto.estoque = float(produto.estoque or 0) + (delta - float(existente.delta or 0))
+                existente.delta = delta
+                existente.quantidade = m.get("quantidade") or abs(delta)
+                if inc_dt:
+                    existente.updated_at = inc_dt
+                db.add(existente)
+                db.add(produto)
+                aplicados += 1
+            # eventos já existentes: nada a fazer (append-only)
+            continue
+
+        # novo movimento -> registra e aplica o delta ao cache
+        novo = MovimentoEstoque(
+            uid=uid, codigo_barras=cb, produto_id=produto.id, tipo=m.get("tipo"),
+            quantidade=m.get("quantidade") or abs(delta), delta=delta,
+            origem=m.get("origem"), referencia=m.get("referencia"),
+            terminal_id=m.get("terminal_id"), observacao=m.get("observacao"),
+        )
+        if inc_dt:
+            novo.updated_at = inc_dt
+        db.add(novo)
+        produto.estoque = float(produto.estoque or 0) + delta
+        db.add(produto)
+        aplicados += 1
+    return aplicados
+
+
 def aplicar_pacote(db, dados: dict) -> dict:
-    """Faz upsert de clientes, produtos e vendas recebidos. Retorna contagens."""
-    res = {"clientes": 0, "produtos": 0, "vendas": 0}
+    """Faz upsert de clientes, produtos, vendas e movimentos recebidos. Retorna contagens."""
+    res = {"clientes": 0, "produtos": 0, "vendas": 0, "movimentos": 0}
 
     # ---- Clientes (chave: codigo) ----
     for c in dados.get("clientes", []):
@@ -136,19 +198,21 @@ def aplicar_pacote(db, dados: dict) -> dict:
             ).first()
         if existente:
             if _mais_novo(inc_dt, existente.updated_at):
+                # NÃO sincroniza 'estoque' aqui: quantidade é controlada por movimentos
                 for campo in ("codigo_barras", "descricao", "unidade", "marca", "preco_custo",
-                              "preco_venda", "estoque", "categoria", "status", "ncm", "ativo"):
+                              "preco_venda", "categoria", "status", "ncm", "ativo"):
                     setattr(existente, campo, p.get(campo))
                 if inc_dt:
                     existente.updated_at = inc_dt
                 db.add(existente)
                 res["produtos"] += 1
         else:
+            # Produto novo entra com estoque 0; a quantidade é construída pelos movimentos
             novo = Produto(
                 codigo_barras=cb, descricao=p.get("descricao") or "(sem descrição)",
                 unidade=p.get("unidade"), marca=p.get("marca"),
                 preco_custo=p.get("preco_custo") or 0, preco_venda=p.get("preco_venda") or 0,
-                estoque=p.get("estoque") or 0, categoria=p.get("categoria"),
+                estoque=0, categoria=p.get("categoria"),
                 status=p.get("status") or "ATIVO", ncm=p.get("ncm"), ativo=p.get("ativo", True),
             )
             if inc_dt:
@@ -183,6 +247,9 @@ def aplicar_pacote(db, dados: dict) -> dict:
             ))
         db.add(nova)
         res["vendas"] += 1
+
+    # ---- Movimentos de estoque (soma/subtrai; não sobrescreve) ----
+    res["movimentos"] = _aplicar_movimentos(db, dados)
 
     db.commit()
     return res
@@ -294,11 +361,12 @@ def sincronizar(db, cfg) -> dict:
         _pasta_push(pasta, terminal_id, payload)
         pacotes = _pasta_pull(pasta, terminal_id)
 
-    total = {"clientes": 0, "produtos": 0, "vendas": 0, "terminais": len(pacotes)}
+    total = {"clientes": 0, "produtos": 0, "vendas": 0, "movimentos": 0, "terminais": len(pacotes)}
     for _nome, dados in pacotes:
         r = aplicar_pacote(db, dados)
         total["clientes"] += r["clientes"]
         total["produtos"] += r["produtos"]
         total["vendas"] += r["vendas"]
+        total["movimentos"] += r.get("movimentos", 0)
 
     return total

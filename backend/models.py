@@ -174,6 +174,30 @@ class Produto(Base):
     # Relacionamentos
     itens_venda = relationship("VendaItem", back_populates="produto")
 
+class MovimentoEstoque(Base):
+    """
+    Movimento de estoque (event-sourcing). O estoque de um produto é a SOMA dos
+    deltas de seus movimentos. Cada movimento tem um uid GLOBAL único para
+    sincronizar entre terminais sem duplicar nem sobrescrever contagens.
+      - eventos (venda/ajuste/entrada): uid = "<terminal>:<hex>", append-only.
+      - baseline (contagem inicial/importação): uid = "base:<codigo_barras>", upsert.
+    """
+    __tablename__ = "movimentos_estoque"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uid = Column(String(80), unique=True, index=True)
+    codigo_barras = Column(String(30), index=True)
+    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=True)
+    tipo = Column(String(15))          # inicial, entrada, saida, ajuste
+    quantidade = Column(Float, default=0.0)  # magnitude informada
+    delta = Column(Float, default=0.0)       # efeito no estoque (assinado)
+    origem = Column(String(30))        # importacao, venda, manual, backfill
+    referencia = Column(String(40))    # ex.: código da venda
+    terminal_id = Column(String(40))
+    observacao = Column(String(255))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class Venda(Base):
     """Tabela de Vendas (cabeçalho) - importado de VENDAS.MDB / tabela CADA"""
     __tablename__ = "vendas"

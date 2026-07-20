@@ -92,7 +92,8 @@ def sincronizar_agora(db: Session = Depends(get_db)):
         cfg.ultima_sync = datetime.utcnow()
         cfg.ultimo_status = (
             f"OK: {total['terminais']} terminal(is) — "
-            f"clientes {total['clientes']}, produtos {total['produtos']}, vendas {total['vendas']}"
+            f"clientes {total['clientes']}, produtos {total['produtos']}, "
+            f"vendas {total['vendas']}, estoque {total.get('movimentos', 0)}"
         )
         db.add(cfg)
         db.commit()
