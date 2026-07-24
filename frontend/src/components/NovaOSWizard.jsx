@@ -12,6 +12,13 @@ const centavosParaNumero = (cent) => parseInt(soDigitos(cent) || '0', 10) / 100;
 const numeroParaCentavos = (n) => (n ? Math.round(n * 100).toString() : '');
 const fmtBRL = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// Telefone com DDD separado do número por um espaço (ex.: "19 999999999")
+const formatarTelefone = (v) => {
+  const d = soDigitos(v).slice(0, 11); // 2 do DDD + até 9 do número
+  if (d.length <= 2) return d;
+  return `${d.slice(0, 2)} ${d.slice(2)}`;
+};
+
 // Campo de valor (moeda) + parcelas (vezes) com valor por parcela automático
 function CampoValorParcela({ titulo, cent, setCent, parcelas, setParcelas }) {
   const valor = centavosParaNumero(cent);
@@ -75,8 +82,8 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
   const [enderecoNumero, setEnderecoNumero] = useState(d.endereco_numero || '');
   const [bairro, setBairro] = useState(d.bairro || '');
   const [cidade, setCidade] = useState(d.cidade_os || '');
-  const [telefone, setTelefone] = useState(d.telefone_contato || '');
-  const [telefone2, setTelefone2] = useState(d.telefone_contato_2 || '');
+  const [telefone, setTelefone] = useState(formatarTelefone(d.telefone_contato || ''));
+  const [telefone2, setTelefone2] = useState(formatarTelefone(d.telefone_contato_2 || ''));
   const [observacao, setObservacao] = useState(d.observacao || '');
 
   // ---- Janela 2: Produto
@@ -343,21 +350,21 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
               <Col md={3}>
                 <Form.Group className="mb-3">
                   <Form.Label>Telefone</Form.Label>
-                  <Form.Control value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="Ex: 11 99999-9999" />
+                  <Form.Control value={telefone} onChange={(e) => setTelefone(formatarTelefone(e.target.value))} placeholder="Ex: 19 999999999" />
                 </Form.Group>
               </Col>
             </Row>
             <Row>
-              <Col md={4}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Telefone 2 (opcional)</Form.Label>
-                  <Form.Control value={telefone2} onChange={(e) => setTelefone2(e.target.value)} placeholder="Ex: 11 98888-7777" />
-                </Form.Group>
-              </Col>
               <Col md={8}>
                 <Form.Group className="mb-3">
                   <Form.Label>Observação</Form.Label>
                   <Form.Control as="textarea" rows={2} value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Anotações sobre o cliente/atendimento" />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Telefone 2 (opcional)</Form.Label>
+                  <Form.Control value={telefone2} onChange={(e) => setTelefone2(formatarTelefone(e.target.value))} placeholder="Ex: 19 988887777" />
                 </Form.Group>
               </Col>
             </Row>
