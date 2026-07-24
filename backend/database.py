@@ -48,6 +48,8 @@ def run_auto_migrations():
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS bairro VARCHAR(80)",
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS cidade_os VARCHAR(80)",
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS telefone_contato VARCHAR(20)",
+        "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS telefone_contato_2 VARCHAR(20)",
+        "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS observacao TEXT",
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS problema_descricao TEXT",
         "ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS assinatura_cliente TEXT",
         # Orçamento (migration 004)

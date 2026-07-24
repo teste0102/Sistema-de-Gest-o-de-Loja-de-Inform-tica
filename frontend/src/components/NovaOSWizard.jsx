@@ -76,6 +76,8 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
   const [bairro, setBairro] = useState(d.bairro || '');
   const [cidade, setCidade] = useState(d.cidade_os || '');
   const [telefone, setTelefone] = useState(d.telefone_contato || '');
+  const [telefone2, setTelefone2] = useState(d.telefone_contato_2 || '');
+  const [observacao, setObservacao] = useState(d.observacao || '');
 
   // ---- Janela 2: Produto
   const [produtoTipo, setProdutoTipo] = useState(d.produto_tipo || 'celular');
@@ -146,6 +148,8 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
       bairro: bairro,
       cidade_os: cidade,
       telefone_contato: telefone,
+      telefone_contato_2: telefone2,
+      observacao: observacao,
       problema_descricao: problema,
       valor_aprovado_estimado: centavosParaNumero(valorAprovadoCent),
       valor_aprovado_parcelas: parseInt(parcelasAprovado, 10) || 1,
@@ -219,7 +223,8 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
         campo('Cliente', nomeCliente) + campo('Rua', enderecoRua) +
         campo('Tipo', enderecoTipo) + campo('Número', enderecoNumero) +
         campo('Complemento', enderecoComplemento) + campo('Bairro', bairro) +
-        campo('Cidade', cidade) + campo('Telefone', telefone);
+        campo('Cidade', cidade) + campo('Telefone', telefone) +
+        campo('Telefone 2', telefone2) + campo('Observação', observacao);
     } else if (passo === 2) {
       html = `<h2>Produto</h2>` +
         campo('Tipo', produtoTipo) + campo('Marca', marcaFinal) +
@@ -250,6 +255,7 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
       campo('Cliente', nomeCliente) + campo('Rua', enderecoRua) + campo('Tipo', enderecoTipo) +
       campo('Número', enderecoNumero) + campo('Complemento', enderecoComplemento) +
       campo('Bairro', bairro) + campo('Cidade', cidade) + campo('Telefone', telefone) +
+      campo('Telefone 2', telefone2) + campo('Observação', observacao) +
       `<h2>Produto</h2>` +
       campo('Tipo', produtoTipo) + campo('Marca', marcaFinal) + campo('Modelo', modeloFinal) +
       campo('IMEI', imei) + campo('Descrição', produtoDescricao) +
@@ -338,6 +344,20 @@ export default function NovaOSWizard({ ordemId = null, clienteId = 1, numeroOS, 
                 <Form.Group className="mb-3">
                   <Form.Label>Telefone</Form.Label>
                   <Form.Control value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="Ex: 11 99999-9999" />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Telefone 2 (opcional)</Form.Label>
+                  <Form.Control value={telefone2} onChange={(e) => setTelefone2(e.target.value)} placeholder="Ex: 11 98888-7777" />
+                </Form.Group>
+              </Col>
+              <Col md={8}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Observação</Form.Label>
+                  <Form.Control as="textarea" rows={2} value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Anotações sobre o cliente/atendimento" />
                 </Form.Group>
               </Col>
             </Row>

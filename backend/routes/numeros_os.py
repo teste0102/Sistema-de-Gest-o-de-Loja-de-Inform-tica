@@ -368,6 +368,8 @@ def obter_os_por_id(
             "bairro": ordem.bairro,
             "cidade_os": ordem.cidade_os,
             "telefone_contato": ordem.telefone_contato,
+            "telefone_contato_2": ordem.telefone_contato_2,
+            "observacao": ordem.observacao,
             # Problema
             "problema_descricao": ordem.problema_descricao,
             # Orçamento

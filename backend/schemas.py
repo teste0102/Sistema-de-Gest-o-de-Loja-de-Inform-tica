@@ -95,6 +95,8 @@ class OrdemWizardUpdate(BaseModel):
     bairro: Optional[str] = None
     cidade_os: Optional[str] = None
     telefone_contato: Optional[str] = None
+    telefone_contato_2: Optional[str] = None
+    observacao: Optional[str] = None
     # Problema
     problema_descricao: Optional[str] = None
     # Orçamento

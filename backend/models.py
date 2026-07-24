@@ -70,6 +70,8 @@ class OrdemServico(Base):
     bairro = Column(String(80))
     cidade_os = Column(String(80))
     telefone_contato = Column(String(20))
+    telefone_contato_2 = Column(String(20))  # segundo telefone (opcional)
+    observacao = Column(Text)                 # observação do cliente/atendimento
 
     # Problema relatado
     problema_descricao = Column(Text)
